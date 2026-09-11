@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,7 @@ namespace EnterpriseManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/permissions")]
-[Authorize(Roles = "ADMIN")]
+[RequirePermission("permission.manage")]
 public class PermissionsController : ControllerBase
 {
     private readonly IPermissionService _permissionService;

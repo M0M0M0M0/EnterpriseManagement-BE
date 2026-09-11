@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,7 +40,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("manager/{managerEmployeeCode}")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("dashboard.view.team")]
     public async Task<ActionResult<ManagerDashboardDto>> GetManagerDashboard(string managerEmployeeCode)
     {
         if (_currentUserService.IsInRole("MANAGER") && managerEmployeeCode != _currentUserService.EmployeeCode)

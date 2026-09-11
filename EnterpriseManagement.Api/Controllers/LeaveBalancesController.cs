@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,7 +40,7 @@ public class LeaveBalancesController : ControllerBase
     }
 
     [HttpPut]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("leavebalance.manage")]
     public async Task<ActionResult<LeaveBalanceDto>> SetAllocatedTime(SetLeaveBalanceRequest request)
     {
         try

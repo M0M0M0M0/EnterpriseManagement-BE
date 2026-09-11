@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,7 +35,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "EMPLOYEE,MANAGER,ADMIN")]
+    [RequirePermission("customer.create")]
     public async Task<ActionResult<CustomerDto>> Create(CreateCustomerRequest request)
     {
         try

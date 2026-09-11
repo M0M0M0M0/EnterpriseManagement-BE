@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("leave.request.self")]
     public async Task<ActionResult<LeaveRequestDto>> Submit(SubmitLeaveRequest request)
     {
         try
@@ -35,7 +36,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpGet("mine")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("leave.request.self")]
     public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetMine()
     {
         var requests = await _leaveRequestService.GetByEmployeeAsync(_currentUserService.EmployeeCode!);
@@ -43,7 +44,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpPut("{id}/cancel")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("leave.request.self")]
     public async Task<ActionResult<LeaveRequestDto>> Cancel(long id)
     {
         try
@@ -58,7 +59,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpGet("pending")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("leave.request.view")]
     public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetPending()
     {
         var pending = await _leaveRequestService.GetPendingAsync();
@@ -66,7 +67,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpGet("history")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("leave.request.view")]
     public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetHistory()
     {
         var history = await _leaveRequestService.GetHistoryAsync();
@@ -74,7 +75,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpPut("{id}/approve")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("leave.request.approve")]
     public async Task<ActionResult<LeaveRequestDto>> Approve(long id)
     {
         try
@@ -89,7 +90,7 @@ public class LeaveRequestsController : ControllerBase
     }
 
     [HttpPut("{id}/reject")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("leave.request.approve")]
     public async Task<ActionResult<LeaveRequestDto>> Reject(long id, RejectLeaveRequest request)
     {
         try

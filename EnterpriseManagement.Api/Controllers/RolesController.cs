@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,7 +8,7 @@ namespace EnterpriseManagement.Api.Controllers;
 
 [ApiController]
 [Route("api/roles")]
-[Authorize(Roles = "ADMIN")]
+[RequirePermission("role.manage")]
 public class RolesController : ControllerBase
 {
     private readonly IRoleService _roleService;

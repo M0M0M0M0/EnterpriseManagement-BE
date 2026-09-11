@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,7 @@ public class MenusController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("menu.manage")]
     public async Task<ActionResult<IEnumerable<MenuDto>>> GetAll()
     {
         var menus = await _menuService.GetAllAsync();
@@ -37,7 +38,7 @@ public class MenusController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("menu.manage")]
     public async Task<ActionResult<MenuDto>> Create(CreateMenuRequest request)
     {
         try
@@ -52,7 +53,7 @@ public class MenusController : ControllerBase
     }
 
     [HttpPut("{menuCode}")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("menu.manage")]
     public async Task<ActionResult<MenuDto>> Update(string menuCode, UpdateMenuRequest request)
     {
         try
@@ -67,7 +68,7 @@ public class MenusController : ControllerBase
     }
 
     [HttpPut("{menuCode}/visible")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("menu.manage")]
     public async Task<ActionResult<MenuDto>> SetVisible(string menuCode, SetVisibleRequest request)
     {
         try
@@ -82,7 +83,7 @@ public class MenusController : ControllerBase
     }
 
     [HttpPut("{menuCode}/active")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("menu.manage")]
     public async Task<ActionResult<MenuDto>> SetActive(string menuCode, SetActiveRequest request)
     {
         try

@@ -109,6 +109,7 @@ using (var scope = app.Services.CreateScope())
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
     await DataSeeder.SeedAsync(context, hasher);
     await MenuSeeder.SeedAsync(context);
+    await ActionPermissionSeeder.SeedAsync(context);
     await LeaveTypeSeeder.SeedAsync(context);
     await PositionSeeder.SeedAsync(context);
 }

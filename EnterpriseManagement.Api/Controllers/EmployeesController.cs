@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,7 +19,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("employee.view.all")]
     public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetAll()
     {
         var employees = await _employeeService.GetAllAsync();
@@ -33,7 +34,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("employee.manage")]
     public async Task<ActionResult<EmployeeDto>> Create(CreateEmployeeRequest request)
     {
         var created = await _employeeService.CreateAsync(request);
@@ -41,7 +42,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpGet("team/{managerEmployeeCode}")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("employee.view.team")]
     public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetTeam(string managerEmployeeCode)
     {
         try
@@ -56,7 +57,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPut("{employeeCode}")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("employee.manage")]
     public async Task<ActionResult<EmployeeDto>> Update(string employeeCode, UpdateEmployeeRequest request)
     {
         try
@@ -71,7 +72,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPut("{employeeCode}/active")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("employee.manage")]
     public async Task<ActionResult<EmployeeDto>> SetActive(string employeeCode, SetActiveRequest request)
     {
         try

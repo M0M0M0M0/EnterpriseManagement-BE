@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("sales.self")]
     public async Task<ActionResult<SaleDto>> Submit(SubmitSaleRequest request)
     {
         try
@@ -35,7 +36,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet("mine")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("sales.self")]
     public async Task<ActionResult<IEnumerable<SaleDto>>> GetMine()
     {
         var sales = await _saleService.GetByEmployeeAsync(_currentUserService.EmployeeCode!);
@@ -43,7 +44,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("sales.self")]
     public async Task<ActionResult<SaleDto>> Update(long id, UpdateSaleRequest request)
     {
         try
@@ -58,7 +59,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet("pending")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("sales.view")]
     public async Task<ActionResult<IEnumerable<SaleDto>>> GetPending()
     {
         var pending = await _saleService.GetPendingAsync();
@@ -66,7 +67,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpGet("history")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("sales.view")]
     public async Task<ActionResult<IEnumerable<SaleDto>>> GetHistory()
     {
         var history = await _saleService.GetHistoryAsync();
@@ -74,7 +75,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpPut("{id}/approve")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("sales.approve")]
     public async Task<ActionResult<SaleDto>> Approve(long id)
     {
         try
@@ -89,7 +90,7 @@ public class SalesController : ControllerBase
     }
 
     [HttpPut("{id}/reject")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("sales.approve")]
     public async Task<ActionResult<SaleDto>> Reject(long id)
     {
         try

@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Security;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -25,7 +26,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("punch")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("attendance.punch")]
     public async Task<ActionResult<AttendanceRecordDto>> Punch()
     {
         try
@@ -59,7 +60,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("department/{departmentCode}")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("attendance.view.team")]
     public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetByDepartment(
         string departmentCode, [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
     {
@@ -75,7 +76,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPost("adjustments")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("attendance.adjustment.self")]
     public async Task<ActionResult<AttendanceAdjustmentDto>> SubmitAdjustment(SubmitAdjustmentRequest request)
     {
         try
@@ -90,7 +91,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("adjustments/mine")]
-    [Authorize(Roles = "EMPLOYEE")]
+    [RequirePermission("attendance.adjustment.self")]
     public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetMyAdjustments()
     {
         var adjustments = await _attendanceAdjustmentService.GetByEmployeeAsync(_currentUserService.EmployeeCode!);
@@ -98,7 +99,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpGet("adjustments/pending")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("attendance.adjustment.view")]
     public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetPendingAdjustments()
     {
         var pending = await _attendanceAdjustmentService.GetPendingAsync();
@@ -106,7 +107,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPut("adjustments/{id}/approve")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("attendance.adjustment.approve")]
     public async Task<ActionResult<AttendanceAdjustmentDto>> ApproveAdjustment(long id)
     {
         try
@@ -121,7 +122,7 @@ public class AttendanceController : ControllerBase
     }
 
     [HttpPut("adjustments/{id}/reject")]
-    [Authorize(Roles = "MANAGER,ADMIN")]
+    [RequirePermission("attendance.adjustment.approve")]
     public async Task<ActionResult<AttendanceAdjustmentDto>> RejectAdjustment(long id)
     {
         try

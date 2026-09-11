@@ -1,5 +1,6 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -32,7 +33,7 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("department.manage")]
     public async Task<ActionResult<DepartmentDto>> Create(CreateDepartmentRequest request)
     {
         try
@@ -47,7 +48,7 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{departmentCode}")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("department.manage")]
     public async Task<ActionResult<DepartmentDto>> Update(string departmentCode, UpdateDepartmentRequest request)
     {
         try
@@ -62,7 +63,7 @@ public class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{departmentCode}/active")]
-    [Authorize(Roles = "ADMIN")]
+    [RequirePermission("department.manage")]
     public async Task<ActionResult<DepartmentDto>> SetActive(string departmentCode, SetActiveRequest request)
     {
         try
