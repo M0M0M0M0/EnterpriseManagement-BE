@@ -1,4 +1,5 @@
 using System.Text;
+using EnterpriseManagement.Api.Security;
 using EnterpriseManagement.Api.Services;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Application.Services;
@@ -6,6 +7,7 @@ using EnterpriseManagement.Infrastructure.Persistence;
 using EnterpriseManagement.Infrastructure.Repositories;
 using EnterpriseManagement.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -34,6 +36,8 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
@@ -45,6 +49,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IMenuRepository, MenuRepository>();
+builder.Services.AddScoped<IMenuService, MenuService>();
 
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
@@ -102,6 +108,7 @@ using (var scope = app.Services.CreateScope())
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
     await DataSeeder.SeedAsync(context, hasher);
+    await MenuSeeder.SeedAsync(context);
 }
 
 app.UseCors(FrontendCorsPolicy);

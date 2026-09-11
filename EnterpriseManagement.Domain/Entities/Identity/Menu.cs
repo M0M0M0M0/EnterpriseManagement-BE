@@ -14,6 +14,7 @@ public class Menu
     public string? Route { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsVisible { get; set; }
+    public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

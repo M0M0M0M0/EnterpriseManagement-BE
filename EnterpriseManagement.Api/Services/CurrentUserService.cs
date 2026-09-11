@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.Interfaces;
 
 namespace EnterpriseManagement.Api.Services;
@@ -20,4 +21,8 @@ public class CurrentUserService : ICurrentUserService
 
     public bool IsInRole(string role) =>
         _httpContextAccessor.HttpContext?.User.IsInRole(role) ?? false;
+
+    public IReadOnlyCollection<string> Permissions =>
+        _httpContextAccessor.HttpContext?.User.FindAll(AppClaimTypes.Permission).Select(c => c.Value).ToList()
+        ?? new List<string>();
 }

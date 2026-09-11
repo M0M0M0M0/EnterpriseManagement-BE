@@ -46,7 +46,14 @@ public class UserService : IUserService
         await _userRepository.SaveChangesAsync();
 
         var roles = user.UserRoles.Select(ur => ur.Role.RoleCode).ToList();
-        var token = _jwtTokenGenerator.GenerateToken(user, roles);
+        var permissions = user.UserRoles
+            .Where(ur => ur.Role.IsActive)
+            .SelectMany(ur => ur.Role.RolePermissions)
+            .Where(rp => rp.Permission.IsActive)
+            .Select(rp => rp.Permission.PermissionCode)
+            .Distinct()
+            .ToList();
+        var token = _jwtTokenGenerator.GenerateToken(user, roles, permissions);
 
         return new LoginResult
         {

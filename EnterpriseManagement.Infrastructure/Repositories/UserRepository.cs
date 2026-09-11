@@ -19,6 +19,8 @@ public class UserRepository : IUserRepository
             .Include(u => u.Employee)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.Username == username);
 
     public async Task<IEnumerable<User>> GetAllAsync() =>

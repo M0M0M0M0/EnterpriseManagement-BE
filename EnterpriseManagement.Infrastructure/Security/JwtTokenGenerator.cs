@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Identity;
 using Microsoft.Extensions.Configuration;
@@ -17,7 +18,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         _configuration = configuration;
     }
 
-    public string GenerateToken(User user, IEnumerable<string> roles)
+    public string GenerateToken(User user, IEnumerable<string> roles, IEnumerable<string> permissions)
     {
         var jwtSection = _configuration.GetSection("Jwt");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSection["Key"]!));
@@ -36,6 +37,7 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         }
 
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+        claims.AddRange(permissions.Distinct().Select(code => new Claim(AppClaimTypes.Permission, code)));
 
         var expiryMinutes = int.Parse(jwtSection["ExpiryMinutes"] ?? "480");
         var token = new JwtSecurityToken(
