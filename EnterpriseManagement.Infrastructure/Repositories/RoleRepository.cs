@@ -15,5 +15,20 @@ public class RoleRepository : IRoleRepository
     }
 
     public async Task<Role?> GetByCodeAsync(string roleCode) =>
-        await _context.Roles.FirstOrDefaultAsync(r => r.RoleCode == roleCode);
+        await _context.Roles
+            .Include(r => r.RolePermissions)
+            .ThenInclude(rp => rp.Permission)
+            .FirstOrDefaultAsync(r => r.RoleCode == roleCode);
+
+    public async Task<IEnumerable<Role>> GetAllAsync() =>
+        await _context.Roles
+            .Include(r => r.RolePermissions)
+            .ThenInclude(rp => rp.Permission)
+            .ToListAsync();
+
+    public async Task AddAsync(Role role) =>
+        await _context.Roles.AddAsync(role);
+
+    public Task<int> SaveChangesAsync() =>
+        _context.SaveChangesAsync();
 }
