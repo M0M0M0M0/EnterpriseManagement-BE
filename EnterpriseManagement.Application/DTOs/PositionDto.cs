@@ -7,4 +7,5 @@ public class PositionDto
     public string? Description { get; set; }
     public bool IsActive { get; set; }
     public decimal? StandardSalary { get; set; }
+    public int RankLevel { get; set; }
 }

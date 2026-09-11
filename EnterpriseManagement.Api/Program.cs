@@ -110,6 +110,7 @@ using (var scope = app.Services.CreateScope())
     await DataSeeder.SeedAsync(context, hasher);
     await MenuSeeder.SeedAsync(context);
     await LeaveTypeSeeder.SeedAsync(context);
+    await PositionSeeder.SeedAsync(context);
 }
 
 app.UseCors(FrontendCorsPolicy);
