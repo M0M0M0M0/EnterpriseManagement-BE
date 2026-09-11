@@ -11,7 +11,9 @@ public class LeaveRequestConfiguration : IEntityTypeConfiguration<LeaveRequest>
         builder.ToTable("LeaveRequests");
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.TotalDays).HasPrecision(5, 2);
+        builder.Property(x => x.Session).HasConversion<string>().HasMaxLength(20);
+        builder.Property(x => x.Unit).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(x => x.TotalTime).HasPrecision(6, 2);
         builder.Property(x => x.Reason).HasMaxLength(1000);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(x => x.RejectionReason).HasMaxLength(500);

@@ -13,9 +13,16 @@ public class LeaveRequest
     public long LeaveTypeId { get; set; }
     public LeaveType LeaveType { get; set; } = null!;
 
-    public DateOnly StartDate { get; set; }
-    public DateOnly EndDate { get; set; }
-    public decimal TotalDays { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+
+    // Chỉ có giá trị khi LeaveType tính theo buổi (AccrualPeriod != MonthlyReset theo quy
+    // ước hiện tại — cụ thể là mọi loại trừ Nghỉ ngắn). Null với Nghỉ ngắn vì loại đó cho
+    // chọn giờ bắt đầu/kết thúc cụ thể thay vì chọn buổi.
+    public LeaveSession? Session { get; set; }
+
+    public LeaveUnit Unit { get; set; }
+    public decimal TotalTime { get; set; }
     public string? Reason { get; set; }
 
     public LeaveRequestStatus Status { get; set; }

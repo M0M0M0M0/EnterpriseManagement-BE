@@ -1,6 +1,7 @@
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Leave;
+using EnterpriseManagement.Domain.Enums;
 
 namespace EnterpriseManagement.Application.Services;
 
@@ -33,11 +34,23 @@ public class LeaveTypeService : ILeaveTypeService
             throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' already exists.");
         }
 
+        if (!Enum.TryParse<LeaveUnit>(request.AccrualUnit, true, out var accrualUnit))
+        {
+            throw new InvalidOperationException($"Invalid accrual unit '{request.AccrualUnit}'.");
+        }
+
+        if (!Enum.TryParse<LeaveAccrualPeriod>(request.AccrualPeriod, true, out var accrualPeriod))
+        {
+            throw new InvalidOperationException($"Invalid accrual period '{request.AccrualPeriod}'.");
+        }
+
         var leaveType = new LeaveType
         {
             LeaveTypeCode = request.LeaveTypeCode,
             LeaveTypeName = request.LeaveTypeName,
-            DefaultDays = request.DefaultDays,
+            AccrualAmount = request.AccrualAmount,
+            AccrualUnit = accrualUnit,
+            AccrualPeriod = accrualPeriod,
             IsPaid = request.IsPaid,
             Description = request.Description,
             IsActive = true
@@ -53,7 +66,9 @@ public class LeaveTypeService : ILeaveTypeService
     {
         LeaveTypeCode = leaveType.LeaveTypeCode,
         LeaveTypeName = leaveType.LeaveTypeName,
-        DefaultDays = leaveType.DefaultDays,
+        AccrualAmount = leaveType.AccrualAmount,
+        AccrualUnit = leaveType.AccrualUnit.ToString(),
+        AccrualPeriod = leaveType.AccrualPeriod.ToString(),
         IsPaid = leaveType.IsPaid,
         Description = leaveType.Description,
         IsActive = leaveType.IsActive

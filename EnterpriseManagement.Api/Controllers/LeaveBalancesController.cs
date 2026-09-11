@@ -40,11 +40,11 @@ public class LeaveBalancesController : ControllerBase
 
     [HttpPut]
     [Authorize(Roles = "MANAGER,ADMIN")]
-    public async Task<ActionResult<LeaveBalanceDto>> SetAllocatedDays(SetLeaveBalanceRequest request)
+    public async Task<ActionResult<LeaveBalanceDto>> SetAllocatedTime(SetLeaveBalanceRequest request)
     {
         try
         {
-            var result = await _leaveBalanceService.SetAllocatedDaysAsync(request);
+            var result = await _leaveBalanceService.SetAllocatedTimeAsync(request);
             return Ok(result);
         }
         catch (InvalidOperationException ex)

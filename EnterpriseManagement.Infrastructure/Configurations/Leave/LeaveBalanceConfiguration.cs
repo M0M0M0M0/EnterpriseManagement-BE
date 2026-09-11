@@ -11,9 +11,10 @@ public class LeaveBalanceConfiguration : IEntityTypeConfiguration<LeaveBalance>
         builder.ToTable("LeaveBalances");
         builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.AllocatedDays).HasPrecision(5, 2);
-        builder.Property(x => x.UsedDays).HasPrecision(5, 2);
-        builder.Property(x => x.RemainingDays).HasPrecision(5, 2);
+        builder.Property(x => x.Unit).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(x => x.AllocatedTime).HasPrecision(6, 2);
+        builder.Property(x => x.UsedTime).HasPrecision(6, 2);
+        builder.Property(x => x.RemainingTime).HasPrecision(6, 2);
 
         builder.HasOne(x => x.Employee)
             .WithMany()

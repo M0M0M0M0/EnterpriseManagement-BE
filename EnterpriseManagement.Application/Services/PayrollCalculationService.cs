@@ -53,8 +53,10 @@ public class PayrollCalculationService : IPayrollCalculationService
         var unpaidLeaves = await _leaveRequestRepository.GetApprovedUnpaidByEmployeeAndPeriodAsync(employee.Id, periodStart, periodEnd);
         foreach (var leave in unpaidLeaves)
         {
-            var overlapStart = leave.StartDate > periodStart ? leave.StartDate : periodStart;
-            var overlapEnd = leave.EndDate < periodEnd ? leave.EndDate : periodEnd;
+            var leaveStart = DateOnly.FromDateTime(leave.StartDate);
+            var leaveEnd = DateOnly.FromDateTime(leave.EndDate);
+            var overlapStart = leaveStart > periodStart ? leaveStart : periodStart;
+            var overlapEnd = leaveEnd < periodEnd ? leaveEnd : periodEnd;
             for (var date = overlapStart; date <= overlapEnd; date = date.AddDays(1))
             {
                 if (DateRangeHelper.IsWeekday(date))

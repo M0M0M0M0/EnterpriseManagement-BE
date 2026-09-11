@@ -14,10 +14,14 @@ public class LeaveBalanceRepository : ILeaveBalanceRepository
         _context = context;
     }
 
-    public async Task<LeaveBalance?> GetAsync(long employeeId, long leaveTypeId, int year) =>
+    public async Task<LeaveBalance?> GetAsync(long employeeId, long leaveTypeId, int year, int? month) =>
         await _context.LeaveBalances
             .Include(b => b.LeaveType)
-            .FirstOrDefaultAsync(b => b.EmployeeId == employeeId && b.LeaveTypeId == leaveTypeId && b.Year == year);
+            .FirstOrDefaultAsync(b =>
+                b.EmployeeId == employeeId &&
+                b.LeaveTypeId == leaveTypeId &&
+                b.Year == year &&
+                b.Month == month);
 
     public async Task<IEnumerable<LeaveBalance>> GetByEmployeeAndYearAsync(long employeeId, int year) =>
         await _context.LeaveBalances

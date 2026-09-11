@@ -10,18 +10,18 @@ public class LeaveRequestService : ILeaveRequestService
 {
     private readonly ILeaveRequestRepository _leaveRequestRepository;
     private readonly ILeaveTypeRepository _leaveTypeRepository;
-    private readonly ILeaveBalanceRepository _leaveBalanceRepository;
+    private readonly ILeaveBalanceService _leaveBalanceService;
     private readonly IEmployeeRepository _employeeRepository;
 
     public LeaveRequestService(
         ILeaveRequestRepository leaveRequestRepository,
         ILeaveTypeRepository leaveTypeRepository,
-        ILeaveBalanceRepository leaveBalanceRepository,
+        ILeaveBalanceService leaveBalanceService,
         IEmployeeRepository employeeRepository)
     {
         _leaveRequestRepository = leaveRequestRepository;
         _leaveTypeRepository = leaveTypeRepository;
-        _leaveBalanceRepository = leaveBalanceRepository;
+        _leaveBalanceService = leaveBalanceService;
         _employeeRepository = employeeRepository;
     }
 
@@ -33,24 +33,24 @@ public class LeaveRequestService : ILeaveRequestService
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
             ?? throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' not found.");
 
-        var totalDays = DateRangeHelper.CountWeekdays(request.StartDate, request.EndDate);
+        var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request);
 
-        // Chỉ chặn khi ĐÃ có LeaveBalance được cấp cho loại nghỉ/năm này mà không đủ ngày còn lại.
-        // Loại nghỉ không cần quản lý hạn mức (vd nghỉ không lương) thì không có LeaveBalance, không bị chặn ở đây.
-        var balance = await _leaveBalanceRepository.GetAsync(employee.Id, leaveType.Id, request.StartDate.Year);
-        if (balance is not null && balance.RemainingDays < totalDays)
+        var balance = await _leaveBalanceService.GetOrCreateAsync(employee, leaveType, startDate);
+        if (balance.RemainingTime < totalTime)
         {
             throw new InvalidOperationException(
-                $"Insufficient leave balance: remaining {balance.RemainingDays} day(s), requested {totalDays} day(s).");
+                $"Insufficient leave balance: remaining {balance.RemainingTime} {balance.Unit}, requested {totalTime} {leaveType.AccrualUnit}.");
         }
 
         var leaveRequest = new LeaveRequest
         {
             EmployeeId = employee.Id,
             LeaveTypeId = leaveType.Id,
-            StartDate = request.StartDate,
-            EndDate = request.EndDate,
-            TotalDays = totalDays,
+            StartDate = startDate,
+            EndDate = endDate,
+            Session = session,
+            Unit = leaveType.AccrualUnit,
+            TotalTime = totalTime,
             Reason = request.Reason,
             Status = LeaveRequestStatus.Pending,
             CreatedAt = DateTime.UtcNow
@@ -61,6 +61,59 @@ public class LeaveRequestService : ILeaveRequestService
 
         var created = await _leaveRequestRepository.GetByIdAsync(leaveRequest.Id);
         return ToDto(created!);
+    }
+
+    // Nghỉ ngắn (AccrualPeriod = MonthlyReset): client chọn giờ bắt đầu/kết thúc cụ thể,
+    // cùng 1 ngày, tính TotalTime theo số giờ thực tế.
+    // Các loại còn lại: client chỉ chọn buổi (Session), backend tự gán giờ cố định theo
+    // buổi. Nghỉ nhiều ngày bắt buộc chọn "Cả ngày" cho toàn bộ khoảng.
+    private static (DateTime StartDate, DateTime EndDate, LeaveSession? Session, decimal TotalTime) ResolveRequestedTime(
+        LeaveType leaveType, SubmitLeaveRequest request)
+    {
+        if (leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset)
+        {
+            if (request.StartDate.Date != request.EndDate.Date)
+            {
+                throw new InvalidOperationException("Nghỉ ngắn chỉ áp dụng trong cùng một ngày.");
+            }
+            if (request.StartDate >= request.EndDate)
+            {
+                throw new InvalidOperationException("Giờ kết thúc phải sau giờ bắt đầu.");
+            }
+
+            var totalHours = (decimal)(request.EndDate - request.StartDate).TotalHours;
+            return (request.StartDate, request.EndDate, null, totalHours);
+        }
+
+        if (!Enum.TryParse<LeaveSession>(request.Session, true, out var session))
+        {
+            throw new InvalidOperationException("Vui lòng chọn buổi nghỉ (Morning, Afternoon hoặc FullDay).");
+        }
+
+        var startOnly = request.StartDate.Date;
+        var endOnly = request.EndDate.Date;
+        if (startOnly > endOnly)
+        {
+            throw new InvalidOperationException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+        }
+        if (startOnly != endOnly && session != LeaveSession.FullDay)
+        {
+            throw new InvalidOperationException("Nghỉ nhiều ngày chỉ được chọn buổi Cả ngày.");
+        }
+
+        var (start, end) = session switch
+        {
+            LeaveSession.Morning => (startOnly.AddHours(8), startOnly.AddHours(12)),
+            LeaveSession.Afternoon => (startOnly.AddHours(13), startOnly.AddHours(17)),
+            LeaveSession.FullDay => (startOnly.AddHours(8), endOnly.AddHours(17)),
+            _ => throw new InvalidOperationException("Buổi nghỉ không hợp lệ.")
+        };
+
+        var totalTime = session == LeaveSession.FullDay
+            ? DateRangeHelper.CountWeekdays(DateOnly.FromDateTime(startOnly), DateOnly.FromDateTime(endOnly))
+            : 0.5m;
+
+        return (start, end, session, totalTime);
     }
 
     public async Task<IEnumerable<LeaveRequestDto>> GetByEmployeeAsync(string employeeCode)
@@ -126,14 +179,10 @@ public class LeaveRequestService : ILeaveRequestService
         leaveRequest.ApprovedAt = DateTime.UtcNow;
         leaveRequest.UpdatedAt = DateTime.UtcNow;
 
-        // Trừ vào LeaveBalance (nếu loại nghỉ này có quản lý hạn mức), cùng 1 SaveChangesAsync với leaveRequest.
-        var balance = await _leaveBalanceRepository.GetAsync(leaveRequest.EmployeeId, leaveRequest.LeaveTypeId, leaveRequest.StartDate.Year);
-        if (balance is not null)
-        {
-            balance.UsedDays += leaveRequest.TotalDays;
-            balance.RemainingDays -= leaveRequest.TotalDays;
-            balance.UpdatedAt = DateTime.UtcNow;
-        }
+        var balance = await _leaveBalanceService.GetOrCreateAsync(leaveRequest.Employee, leaveRequest.LeaveType, leaveRequest.StartDate);
+        balance.UsedTime += leaveRequest.TotalTime;
+        balance.RemainingTime -= leaveRequest.TotalTime;
+        balance.UpdatedAt = DateTime.UtcNow;
 
         await _leaveRequestRepository.SaveChangesAsync();
 
@@ -174,7 +223,9 @@ public class LeaveRequestService : ILeaveRequestService
         LeaveTypeName = leaveRequest.LeaveType.LeaveTypeName,
         StartDate = leaveRequest.StartDate,
         EndDate = leaveRequest.EndDate,
-        TotalDays = leaveRequest.TotalDays,
+        Session = leaveRequest.Session?.ToString(),
+        Unit = leaveRequest.Unit.ToString(),
+        TotalTime = leaveRequest.TotalTime,
         Reason = leaveRequest.Reason,
         Status = leaveRequest.Status.ToString(),
         ApproverName = leaveRequest.Approver is null ? null : $"{leaveRequest.Approver.FirstName} {leaveRequest.Approver.LastName}",

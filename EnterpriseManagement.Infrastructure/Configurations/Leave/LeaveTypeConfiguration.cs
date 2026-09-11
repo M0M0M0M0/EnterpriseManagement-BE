@@ -13,7 +13,9 @@ public class LeaveTypeConfiguration : IEntityTypeConfiguration<LeaveType>
 
         builder.Property(x => x.LeaveTypeCode).HasMaxLength(50).IsRequired();
         builder.Property(x => x.LeaveTypeName).HasMaxLength(100).IsRequired();
-        builder.Property(x => x.DefaultDays).HasPrecision(5, 2);
+        builder.Property(x => x.AccrualAmount).HasPrecision(6, 2);
+        builder.Property(x => x.AccrualUnit).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(x => x.AccrualPeriod).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.Description).HasMaxLength(500);
 
         builder.HasIndex(x => x.LeaveTypeCode).IsUnique();

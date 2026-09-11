@@ -16,15 +16,20 @@ public class LeaveRequestRepository : ILeaveRequestRepository
     }
 
     public async Task<IEnumerable<LeaveRequest>> GetApprovedUnpaidByEmployeeAndPeriodAsync(
-        long employeeId, DateOnly periodStart, DateOnly periodEnd) =>
-        await _context.LeaveRequests
+        long employeeId, DateOnly periodStart, DateOnly periodEnd)
+    {
+        var periodStartDateTime = periodStart.ToDateTime(TimeOnly.MinValue);
+        var periodEndDateTime = periodEnd.ToDateTime(TimeOnly.MaxValue);
+
+        return await _context.LeaveRequests
             .Include(l => l.LeaveType)
             .Where(l => l.EmployeeId == employeeId
                 && l.Status == LeaveRequestStatus.Approved
                 && !l.LeaveType.IsPaid
-                && l.StartDate <= periodEnd
-                && l.EndDate >= periodStart)
+                && l.StartDate <= periodEndDateTime
+                && l.EndDate >= periodStartDateTime)
             .ToListAsync();
+    }
 
     public async Task<LeaveRequest?> GetByIdAsync(long id) =>
         await _context.LeaveRequests

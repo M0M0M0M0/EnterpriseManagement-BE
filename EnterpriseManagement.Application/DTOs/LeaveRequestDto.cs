@@ -7,9 +7,11 @@ public class LeaveRequestDto
     public string EmployeeName { get; set; } = string.Empty;
     public string LeaveTypeCode { get; set; } = string.Empty;
     public string LeaveTypeName { get; set; } = string.Empty;
-    public DateOnly StartDate { get; set; }
-    public DateOnly EndDate { get; set; }
-    public decimal TotalDays { get; set; }
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public string? Session { get; set; }
+    public string Unit { get; set; } = string.Empty;
+    public decimal TotalTime { get; set; }
     public string? Reason { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? ApproverName { get; set; }

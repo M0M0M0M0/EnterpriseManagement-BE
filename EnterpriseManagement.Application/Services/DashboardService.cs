@@ -59,7 +59,9 @@ public class DashboardService : IDashboardService
                 WorkingHours = todayRecord.WorkingHours,
                 Status = todayRecord.Status.ToString()
             },
-            TotalRemainingLeaveDays = balances.Sum(b => b.RemainingDays),
+            // Chỉ cộng các loại nghỉ tính theo ngày; loại tính theo giờ (Nghỉ ngắn) không
+            // cùng đơn vị nên không gộp chung vào tổng "ngày phép còn lại" này.
+            TotalRemainingLeaveDays = balances.Where(b => b.Unit == LeaveUnit.Days).Sum(b => b.RemainingTime),
             PendingLeaveRequestsCount = pendingLeaves,
             PendingSalesCount = pendingSales,
             PendingAttendanceAdjustmentsCount = pendingAdjustments
