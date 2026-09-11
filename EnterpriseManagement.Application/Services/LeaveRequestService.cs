@@ -148,25 +148,46 @@ public class LeaveRequestService : ILeaveRequestService
         return ToDto(leaveRequest);
     }
 
-    public async Task<IEnumerable<LeaveRequestDto>> GetPendingAsync()
+    public async Task<IEnumerable<LeaveRequestDto>> GetPendingAsync(string requesterEmployeeCode, bool isAdmin)
     {
         var requests = await _leaveRequestRepository.GetPendingAsync();
-        return requests.Select(ToDto);
+        return await FilterByTeamAsync(requests, requesterEmployeeCode, isAdmin);
     }
 
-    public async Task<IEnumerable<LeaveRequestDto>> GetHistoryAsync()
+    public async Task<IEnumerable<LeaveRequestDto>> GetHistoryAsync(string requesterEmployeeCode, bool isAdmin)
     {
         var requests = await _leaveRequestRepository.GetAllAsync();
-        return requests.Select(ToDto);
+        return await FilterByTeamAsync(requests, requesterEmployeeCode, isAdmin);
     }
 
-    public async Task<LeaveRequestDto> ApproveAsync(long leaveRequestId, string approverEmployeeCode)
+    // ADMIN thấy toàn bộ. Manager chỉ thấy đơn của người mình quản lý trực tiếp
+    // (Employee.ManagerId), không thấy đơn của phòng ban/người khác.
+    private async Task<IEnumerable<LeaveRequestDto>> FilterByTeamAsync(
+        IEnumerable<LeaveRequest> requests, string requesterEmployeeCode, bool isAdmin)
+    {
+        if (isAdmin)
+        {
+            return requests.Select(ToDto);
+        }
+
+        var requester = await _employeeRepository.GetByEmployeeCodeAsync(requesterEmployeeCode)
+            ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+
+        return requests.Where(r => r.Employee.ManagerId == requester.Id).Select(ToDto);
+    }
+
+    public async Task<LeaveRequestDto> ApproveAsync(long leaveRequestId, string approverEmployeeCode, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
 
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
             ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
+
+        if (!isAdmin && leaveRequest.Employee.ManagerId != approver.Id)
+        {
+            throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+        }
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
         {
@@ -189,13 +210,18 @@ public class LeaveRequestService : ILeaveRequestService
         return ToDto(leaveRequest);
     }
 
-    public async Task<LeaveRequestDto> RejectAsync(long leaveRequestId, string approverEmployeeCode, string? rejectionReason)
+    public async Task<LeaveRequestDto> RejectAsync(long leaveRequestId, string approverEmployeeCode, string? rejectionReason, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
 
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
             ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
+
+        if (!isAdmin && leaveRequest.Employee.ManagerId != approver.Id)
+        {
+            throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+        }
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
         {

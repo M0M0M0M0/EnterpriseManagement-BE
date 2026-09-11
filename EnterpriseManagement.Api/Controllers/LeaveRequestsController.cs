@@ -62,7 +62,7 @@ public class LeaveRequestsController : ControllerBase
     [RequirePermission("leave.request.view")]
     public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetPending()
     {
-        var pending = await _leaveRequestService.GetPendingAsync();
+        var pending = await _leaveRequestService.GetPendingAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
         return Ok(pending);
     }
 
@@ -70,7 +70,7 @@ public class LeaveRequestsController : ControllerBase
     [RequirePermission("leave.request.view")]
     public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetHistory()
     {
-        var history = await _leaveRequestService.GetHistoryAsync();
+        var history = await _leaveRequestService.GetHistoryAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
         return Ok(history);
     }
 
@@ -80,7 +80,7 @@ public class LeaveRequestsController : ControllerBase
     {
         try
         {
-            var result = await _leaveRequestService.ApproveAsync(id, _currentUserService.EmployeeCode!);
+            var result = await _leaveRequestService.ApproveAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -95,7 +95,7 @@ public class LeaveRequestsController : ControllerBase
     {
         try
         {
-            var result = await _leaveRequestService.RejectAsync(id, _currentUserService.EmployeeCode!, request.RejectionReason);
+            var result = await _leaveRequestService.RejectAsync(id, _currentUserService.EmployeeCode!, request.RejectionReason, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)
