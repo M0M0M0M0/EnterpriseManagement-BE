@@ -57,7 +57,7 @@ public class EmployeeService : IEmployeeService
             ManagerId = manager?.Id,
             HireDate = request.HireDate,
             EmploymentStatus = EmploymentStatus.Probation,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _employeeRepository.AddAsync(employee);
@@ -91,7 +91,7 @@ public class EmployeeService : IEmployeeService
         employee.DepartmentId = department.Id;
         employee.PositionId = position.Id;
         employee.ManagerId = manager?.Id;
-        employee.UpdatedAt = DateTime.UtcNow;
+        employee.UpdatedAt = VietnamClock.Now;
 
         await _employeeRepository.SaveChangesAsync();
 
@@ -112,7 +112,7 @@ public class EmployeeService : IEmployeeService
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
         employee.EmploymentStatus = isActive ? EmploymentStatus.Active : EmploymentStatus.Terminated;
-        employee.UpdatedAt = DateTime.UtcNow;
+        employee.UpdatedAt = VietnamClock.Now;
 
         await _employeeRepository.SaveChangesAsync();
 

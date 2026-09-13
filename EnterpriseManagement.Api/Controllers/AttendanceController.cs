@@ -102,7 +102,7 @@ public class AttendanceController : ControllerBase
     [RequirePermission("attendance.adjustment.view")]
     public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetPendingAdjustments()
     {
-        var pending = await _attendanceAdjustmentService.GetPendingAsync();
+        var pending = await _attendanceAdjustmentService.GetPendingAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
         return Ok(pending);
     }
 
@@ -112,7 +112,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            var result = await _attendanceAdjustmentService.ApproveAsync(id, _currentUserService.EmployeeCode!);
+            var result = await _attendanceAdjustmentService.ApproveAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -127,7 +127,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            var result = await _attendanceAdjustmentService.RejectAsync(id, _currentUserService.EmployeeCode!);
+            var result = await _attendanceAdjustmentService.RejectAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)

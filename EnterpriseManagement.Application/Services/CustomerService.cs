@@ -43,7 +43,7 @@ public class CustomerService : ICustomerService
             Address = request.Address,
             AssignedEmployeeId = employee.Id,
             Status = CustomerStatus.Active,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _customerRepository.AddAsync(customer);

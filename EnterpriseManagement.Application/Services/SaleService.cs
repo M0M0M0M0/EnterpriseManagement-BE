@@ -11,12 +11,18 @@ public class SaleService : ISaleService
     private readonly ISaleRepository _saleRepository;
     private readonly ICustomerRepository _customerRepository;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly IApprovalDelegationResolver _approvalDelegationResolver;
 
-    public SaleService(ISaleRepository saleRepository, ICustomerRepository customerRepository, IEmployeeRepository employeeRepository)
+    public SaleService(
+        ISaleRepository saleRepository,
+        ICustomerRepository customerRepository,
+        IEmployeeRepository employeeRepository,
+        IApprovalDelegationResolver approvalDelegationResolver)
     {
         _saleRepository = saleRepository;
         _customerRepository = customerRepository;
         _employeeRepository = employeeRepository;
+        _approvalDelegationResolver = approvalDelegationResolver;
     }
 
     public async Task<SaleDto> SubmitAsync(SubmitSaleRequest request, string employeeCode)
@@ -33,10 +39,10 @@ public class SaleService : ISaleService
             CustomerId = customer.Id,
             EmployeeId = employee.Id,
             Amount = request.Amount,
-            OrderDate = DateTime.UtcNow,
+            OrderDate = VietnamClock.Now,
             Status = SaleStatus.Pending,
             Note = request.Note,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _saleRepository.AddAsync(sale);
@@ -72,44 +78,80 @@ public class SaleService : ISaleService
 
         sale.Amount = request.Amount;
         sale.Note = request.Note;
-        sale.UpdatedAt = DateTime.UtcNow;
+        sale.UpdatedAt = VietnamClock.Now;
 
         await _saleRepository.SaveChangesAsync();
 
         return ToDto(sale);
     }
 
-    public async Task<IEnumerable<SaleDto>> GetPendingAsync()
+    public async Task<IEnumerable<SaleDto>> GetPendingAsync(string requesterEmployeeCode, bool isAdmin)
     {
         var sales = await _saleRepository.GetPendingAsync();
-        return sales.Select(ToDto);
+        return await FilterByTeamAsync(sales, requesterEmployeeCode, isAdmin);
     }
 
-    public async Task<IEnumerable<SaleDto>> GetHistoryAsync()
+    public async Task<IEnumerable<SaleDto>> GetHistoryAsync(string requesterEmployeeCode, bool isAdmin)
     {
         var sales = await _saleRepository.GetAllAsync();
-        return sales.Select(ToDto);
+        return await FilterByTeamAsync(sales, requesterEmployeeCode, isAdmin);
     }
 
-    public async Task<SaleDto> ApproveAsync(long saleId, string approverEmployeeCode)
+    // ADMIN thấy toàn bộ. Manager thấy sale của người mình quản lý trực tiếp — hoặc của người
+    // mà quản lý trực tiếp của họ đang nghỉ phép (đẩy việc duyệt lên mình), xem
+    // IApprovalDelegationResolver để biết chi tiết.
+    private async Task<IEnumerable<SaleDto>> FilterByTeamAsync(
+        IEnumerable<Sale> sales, string requesterEmployeeCode, bool isAdmin)
     {
-        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, SaleStatus.Confirmed, "approved");
+        if (isAdmin)
+        {
+            return sales.Select(ToDto);
+        }
+
+        var requester = await _employeeRepository.GetByEmployeeCodeAsync(requesterEmployeeCode)
+            ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+
+        var result = new List<SaleDto>();
+        foreach (var sale in sales)
+        {
+            var approver = await _approvalDelegationResolver.ResolveApproverAsync(sale.Employee);
+            if (approver?.Id == requester.Id)
+            {
+                result.Add(ToDto(sale));
+            }
+        }
+
+        return result;
+    }
+
+    public async Task<SaleDto> ApproveAsync(long saleId, string approverEmployeeCode, bool isAdmin)
+    {
+        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Confirmed, "approved");
         return ToDto(sale);
     }
 
-    public async Task<SaleDto> RejectAsync(long saleId, string approverEmployeeCode)
+    public async Task<SaleDto> RejectAsync(long saleId, string approverEmployeeCode, bool isAdmin)
     {
-        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, SaleStatus.Cancelled, "rejected");
+        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Cancelled, "rejected");
         return ToDto(sale);
     }
 
-    private async Task<Sale> ChangeStatusAsync(long saleId, string approverEmployeeCode, SaleStatus newStatus, string action)
+    private async Task<Sale> ChangeStatusAsync(long saleId, string approverEmployeeCode, bool isAdmin, SaleStatus newStatus, string action)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
 
         var sale = await _saleRepository.GetByIdAsync(saleId)
             ?? throw new InvalidOperationException($"Sale {saleId} not found.");
+
+        if (!isAdmin)
+        {
+            var effectiveApprover = await _approvalDelegationResolver.ResolveApproverAsync(sale.Employee);
+            if (effectiveApprover?.Id != approver.Id)
+            {
+                throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            }
+        }
 
         if (sale.Status != SaleStatus.Pending)
         {
@@ -119,8 +161,8 @@ public class SaleService : ISaleService
         sale.Status = newStatus;
         sale.ApprovedBy = approver.Id;
         sale.Approver = approver;
-        sale.ApprovedAt = DateTime.UtcNow;
-        sale.UpdatedAt = DateTime.UtcNow;
+        sale.ApprovedAt = VietnamClock.Now;
+        sale.UpdatedAt = VietnamClock.Now;
 
         await _saleRepository.SaveChangesAsync();
 

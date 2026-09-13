@@ -9,4 +9,5 @@ public interface IUserService
     Task<IEnumerable<UserDto>> GetAllAsync();
     Task<UserDto> SetActiveAsync(string username, bool isActive);
     Task<CreateUserResult> ResetPasswordAsync(string username);
+    Task ChangePasswordAsync(string username, string currentPassword, string newPassword);
 }

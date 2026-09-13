@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Attendance;
@@ -27,9 +28,9 @@ public class AttendanceService : IAttendanceService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = VietnamClock.Today;
         var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
-        var now = DateTime.UtcNow;
+        var now = VietnamClock.Now;
 
         if (record is null)
         {

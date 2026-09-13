@@ -62,7 +62,7 @@ public class SalesController : ControllerBase
     [RequirePermission("sales.view")]
     public async Task<ActionResult<IEnumerable<SaleDto>>> GetPending()
     {
-        var pending = await _saleService.GetPendingAsync();
+        var pending = await _saleService.GetPendingAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
         return Ok(pending);
     }
 
@@ -70,7 +70,7 @@ public class SalesController : ControllerBase
     [RequirePermission("sales.view")]
     public async Task<ActionResult<IEnumerable<SaleDto>>> GetHistory()
     {
-        var history = await _saleService.GetHistoryAsync();
+        var history = await _saleService.GetHistoryAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
         return Ok(history);
     }
 
@@ -80,7 +80,7 @@ public class SalesController : ControllerBase
     {
         try
         {
-            var result = await _saleService.ApproveAsync(id, _currentUserService.EmployeeCode!);
+            var result = await _saleService.ApproveAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -95,7 +95,7 @@ public class SalesController : ControllerBase
     {
         try
         {
-            var result = await _saleService.RejectAsync(id, _currentUserService.EmployeeCode!);
+            var result = await _saleService.RejectAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)

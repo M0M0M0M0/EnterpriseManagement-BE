@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Identity;
@@ -37,10 +38,10 @@ public class RoleService : IRoleService
             RoleName = request.RoleName,
             Description = request.Description,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
         role.RolePermissions = permissions
-            .Select(p => new RolePermission { Permission = p, GrantedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow })
+            .Select(p => new RolePermission { Permission = p, GrantedAt = VietnamClock.Now, CreatedAt = VietnamClock.Now })
             .ToList();
 
         await _roleRepository.AddAsync(role);
@@ -59,7 +60,7 @@ public class RoleService : IRoleService
 
         role.RoleName = request.RoleName;
         role.Description = request.Description;
-        role.UpdatedAt = DateTime.UtcNow;
+        role.UpdatedAt = VietnamClock.Now;
         role.RolePermissions.Clear();
         foreach (var permission in permissions)
         {
@@ -67,8 +68,8 @@ public class RoleService : IRoleService
             {
                 Role = role,
                 Permission = permission,
-                GrantedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
+                GrantedAt = VietnamClock.Now,
+                CreatedAt = VietnamClock.Now
             });
         }
 
@@ -84,7 +85,7 @@ public class RoleService : IRoleService
             ?? throw new InvalidOperationException($"Role code '{roleCode}' not found.");
 
         role.IsActive = isActive;
-        role.UpdatedAt = DateTime.UtcNow;
+        role.UpdatedAt = VietnamClock.Now;
 
         await _roleRepository.SaveChangesAsync();
 

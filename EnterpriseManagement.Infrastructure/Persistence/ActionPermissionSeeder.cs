@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Domain.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,7 +56,7 @@ public static class ActionPermissionSeeder
     // đủ ở lần khởi động kế tiếp, không cần xoá permission để seed lại từ đầu.
     public static async Task SeedAsync(ApplicationDbContext context)
     {
-        var now = DateTime.UtcNow;
+        var now = VietnamClock.Now;
         var existingPermissionCodes = (await context.Permissions.Select(p => p.PermissionCode).ToListAsync()).ToHashSet();
         var missingSeeds = Seeds.Where(s => !existingPermissionCodes.Contains(s.PermissionCode)).ToList();
 

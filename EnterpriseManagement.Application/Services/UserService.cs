@@ -42,7 +42,7 @@ public class UserService : IUserService
             throw new InvalidOperationException("Invalid username or password.");
         }
 
-        user.LastLoginAt = DateTime.UtcNow;
+        user.LastLoginAt = VietnamClock.Now;
         await _userRepository.SaveChangesAsync();
 
         var roles = user.UserRoles.Select(ur => ur.Role.RoleCode).ToList();
@@ -104,9 +104,9 @@ public class UserService : IUserService
             PasswordHash = _passwordHasher.Hash(generatedPassword),
             EmployeeId = employeeId,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
-        user.UserRoles.Add(new UserRole { Role = role, AssignedAt = DateTime.UtcNow });
+        user.UserRoles.Add(new UserRole { Role = role, AssignedAt = VietnamClock.Now });
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
@@ -132,7 +132,7 @@ public class UserService : IUserService
 
         var generatedPassword = RandomCodeGenerator.Generate(10);
         user.PasswordHash = _passwordHasher.Hash(generatedPassword);
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = VietnamClock.Now;
         await _userRepository.SaveChangesAsync();
 
         return new CreateUserResult
@@ -142,13 +142,38 @@ public class UserService : IUserService
         };
     }
 
+    public async Task ChangePasswordAsync(string username, string currentPassword, string newPassword)
+    {
+        var user = await _userRepository.GetByUsernameAsync(username)
+            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+
+        if (!_passwordHasher.Verify(currentPassword, user.PasswordHash))
+        {
+            throw new InvalidOperationException("Mật khẩu hiện tại không đúng.");
+        }
+
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            throw new InvalidOperationException("Mật khẩu mới phải có ít nhất 8 ký tự.");
+        }
+
+        if (_passwordHasher.Verify(newPassword, user.PasswordHash))
+        {
+            throw new InvalidOperationException("Mật khẩu mới phải khác mật khẩu hiện tại.");
+        }
+
+        user.PasswordHash = _passwordHasher.Hash(newPassword);
+        user.UpdatedAt = VietnamClock.Now;
+        await _userRepository.SaveChangesAsync();
+    }
+
     public async Task<UserDto> SetActiveAsync(string username, bool isActive)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
             ?? throw new InvalidOperationException($"Username '{username}' not found.");
 
         user.IsActive = isActive;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdatedAt = VietnamClock.Now;
         await _userRepository.SaveChangesAsync();
 
         return ToDto(user);

@@ -31,6 +31,27 @@ public class LeaveRequestRepository : ILeaveRequestRepository
             .ToListAsync();
     }
 
+    public async Task<IEnumerable<LeaveRequest>> GetActiveByEmployeeAndRangeAsync(
+        long employeeId, DateTime start, DateTime end)
+    {
+        return await _context.LeaveRequests
+            .Include(l => l.LeaveType)
+            .Where(l => l.EmployeeId == employeeId
+                && (l.Status == LeaveRequestStatus.Pending || l.Status == LeaveRequestStatus.Approved)
+                && l.StartDate < end
+                && l.EndDate > start)
+            .ToListAsync();
+    }
+
+    public async Task<bool> HasApprovedLeaveAtAsync(long employeeId, DateTime instant)
+    {
+        return await _context.LeaveRequests
+            .AnyAsync(l => l.EmployeeId == employeeId
+                && l.Status == LeaveRequestStatus.Approved
+                && l.StartDate <= instant
+                && l.EndDate >= instant);
+    }
+
     public async Task<LeaveRequest?> GetByIdAsync(long id) =>
         await _context.LeaveRequests
             .Include(l => l.LeaveType)

@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Identity;
@@ -54,7 +55,7 @@ public class MenuService : IMenuService
             DisplayOrder = request.DisplayOrder,
             IsVisible = true,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
         menu.MenuPermissions = permissions.Select(p => new MenuPermission { Permission = p }).ToList();
 
@@ -76,7 +77,7 @@ public class MenuService : IMenuService
         menu.Icon = request.Icon;
         menu.Route = request.Route;
         menu.DisplayOrder = request.DisplayOrder;
-        menu.UpdatedAt = DateTime.UtcNow;
+        menu.UpdatedAt = VietnamClock.Now;
         menu.MenuPermissions.Clear();
         foreach (var permission in permissions)
         {
@@ -95,7 +96,7 @@ public class MenuService : IMenuService
             ?? throw new InvalidOperationException($"Menu code '{menuCode}' not found.");
 
         menu.IsVisible = isVisible;
-        menu.UpdatedAt = DateTime.UtcNow;
+        menu.UpdatedAt = VietnamClock.Now;
 
         await _menuRepository.SaveChangesAsync();
 
@@ -108,7 +109,7 @@ public class MenuService : IMenuService
             ?? throw new InvalidOperationException($"Menu code '{menuCode}' not found.");
 
         menu.IsActive = isActive;
-        menu.UpdatedAt = DateTime.UtcNow;
+        menu.UpdatedAt = VietnamClock.Now;
 
         await _menuRepository.SaveChangesAsync();
 

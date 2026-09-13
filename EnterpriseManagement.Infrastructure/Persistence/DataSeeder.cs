@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,9 +12,9 @@ public static class DataSeeder
         if (!await context.Roles.AnyAsync())
         {
             context.Roles.AddRange(
-                new Role { RoleCode = "ADMIN", RoleName = "Administrator", IsActive = true, CreatedAt = DateTime.UtcNow },
-                new Role { RoleCode = "MANAGER", RoleName = "Manager", IsActive = true, CreatedAt = DateTime.UtcNow },
-                new Role { RoleCode = "EMPLOYEE", RoleName = "Employee", IsActive = true, CreatedAt = DateTime.UtcNow });
+                new Role { RoleCode = "ADMIN", RoleName = "Administrator", IsActive = true, CreatedAt = VietnamClock.Now },
+                new Role { RoleCode = "MANAGER", RoleName = "Manager", IsActive = true, CreatedAt = VietnamClock.Now },
+                new Role { RoleCode = "EMPLOYEE", RoleName = "Employee", IsActive = true, CreatedAt = VietnamClock.Now });
             await context.SaveChangesAsync();
         }
 
@@ -26,9 +27,9 @@ public static class DataSeeder
                 Email = "admin@enterprise.local",
                 PasswordHash = passwordHasher.Hash("admin"),
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamClock.Now
             };
-            admin.UserRoles.Add(new UserRole { Role = adminRole, AssignedAt = DateTime.UtcNow });
+            admin.UserRoles.Add(new UserRole { Role = adminRole, AssignedAt = VietnamClock.Now });
 
             context.Users.Add(admin);
             await context.SaveChangesAsync();

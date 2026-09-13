@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Enums;
@@ -34,7 +35,7 @@ public class DashboardService : IDashboardService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = VietnamClock.Today;
         var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
 
         var balances = await _leaveBalanceRepository.GetByEmployeeAndYearAsync(employee.Id, today.Year);
@@ -83,7 +84,7 @@ public class DashboardService : IDashboardService
         var pendingAdjustments = (await _attendanceAdjustmentRepository.GetPendingAsync())
             .Count(a => teamIds.Contains(a.RequestedBy));
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = VietnamClock.Today;
         var monthStart = new DateOnly(today.Year, today.Month, 1);
 
         decimal monthlyRevenue = 0;

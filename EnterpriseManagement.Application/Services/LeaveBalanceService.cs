@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.HR;
@@ -28,7 +29,7 @@ public class LeaveBalanceService : ILeaveBalanceService
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
         var leaveTypes = (await _leaveTypeRepository.GetAllAsync()).Where(lt => lt.IsActive);
-        var now = DateTime.UtcNow;
+        var now = VietnamClock.Now;
         var targetDate = year == now.Year ? now : new DateTime(year, 1, 1);
 
         var balances = new List<LeaveBalance>();
@@ -63,7 +64,7 @@ public class LeaveBalanceService : ILeaveBalanceService
                 AllocatedTime = request.AllocatedTime,
                 UsedTime = 0,
                 RemainingTime = request.AllocatedTime,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamClock.Now
             };
             await _leaveBalanceRepository.AddAsync(balance);
         }
@@ -72,7 +73,7 @@ public class LeaveBalanceService : ILeaveBalanceService
             var delta = request.AllocatedTime - balance.AllocatedTime;
             balance.AllocatedTime = request.AllocatedTime;
             balance.RemainingTime += delta;
-            balance.UpdatedAt = DateTime.UtcNow;
+            balance.UpdatedAt = VietnamClock.Now;
         }
 
         await _leaveBalanceRepository.SaveChangesAsync();
@@ -105,7 +106,7 @@ public class LeaveBalanceService : ILeaveBalanceService
             AllocatedTime = allocated,
             UsedTime = 0,
             RemainingTime = allocated,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _leaveBalanceRepository.AddAsync(balance);

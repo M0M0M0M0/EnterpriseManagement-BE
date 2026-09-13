@@ -12,17 +12,20 @@ public class LeaveRequestService : ILeaveRequestService
     private readonly ILeaveTypeRepository _leaveTypeRepository;
     private readonly ILeaveBalanceService _leaveBalanceService;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly IApprovalDelegationResolver _approvalDelegationResolver;
 
     public LeaveRequestService(
         ILeaveRequestRepository leaveRequestRepository,
         ILeaveTypeRepository leaveTypeRepository,
         ILeaveBalanceService leaveBalanceService,
-        IEmployeeRepository employeeRepository)
+        IEmployeeRepository employeeRepository,
+        IApprovalDelegationResolver approvalDelegationResolver)
     {
         _leaveRequestRepository = leaveRequestRepository;
         _leaveTypeRepository = leaveTypeRepository;
         _leaveBalanceService = leaveBalanceService;
         _employeeRepository = employeeRepository;
+        _approvalDelegationResolver = approvalDelegationResolver;
     }
 
     public async Task<LeaveRequestDto> SubmitAsync(SubmitLeaveRequest request, string employeeCode)
@@ -33,7 +36,24 @@ public class LeaveRequestService : ILeaveRequestService
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
             ?? throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' not found.");
 
-        var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request, DateTime.Now);
+        var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request, VietnamClock.Now);
+
+        // Chặn nộp đơn trùng thời gian với đơn Pending/Approved đã có của chính nhân viên đó —
+        // tránh trường hợp xin nghỉ 2 lần cho cùng 1 khoảng thời gian, duyệt cả 2 sẽ trừ nhầm
+        // 2 lần balance cho cùng 1 lần nghỉ thực tế.
+        // Quy tắc bất đối xứng: Nghỉ ngắn không được trùng với BẤT KỲ đơn nào khác (kể cả nghỉ
+        // ngắn khác). Nghỉ theo buổi/cả ngày chỉ bị chặn khi trùng đơn buổi/cả ngày khác — nếu chỉ
+        // trùng với 1 đơn nghỉ ngắn thì coi như "đè" lên nghỉ ngắn đó, vẫn cho nộp bình thường.
+        var isShortLeave = leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset;
+        var overlapping = await _leaveRequestRepository.GetActiveByEmployeeAndRangeAsync(employee.Id, startDate, endDate);
+        var blockingOverlap = isShortLeave
+            ? overlapping
+            : overlapping.Where(l => l.LeaveType.AccrualPeriod != LeaveAccrualPeriod.MonthlyReset);
+        if (blockingOverlap.Any())
+        {
+            throw new InvalidOperationException(
+                "Bạn đã có đơn xin nghỉ (đang chờ duyệt hoặc đã duyệt) trùng thời gian với đơn này. Vui lòng kiểm tra lại lịch nghỉ hiện có.");
+        }
 
         var balance = await _leaveBalanceService.GetOrCreateAsync(employee, leaveType, startDate);
         if (balance.RemainingTime < totalTime)
@@ -53,7 +73,7 @@ public class LeaveRequestService : ILeaveRequestService
             TotalTime = totalTime,
             Reason = request.Reason,
             Status = LeaveRequestStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _leaveRequestRepository.AddAsync(leaveRequest);
@@ -167,7 +187,7 @@ public class LeaveRequestService : ILeaveRequestService
         }
 
         leaveRequest.Status = LeaveRequestStatus.Cancelled;
-        leaveRequest.UpdatedAt = DateTime.UtcNow;
+        leaveRequest.UpdatedAt = VietnamClock.Now;
 
         await _leaveRequestRepository.SaveChangesAsync();
 
@@ -186,8 +206,9 @@ public class LeaveRequestService : ILeaveRequestService
         return await FilterByTeamAsync(requests, requesterEmployeeCode, isAdmin);
     }
 
-    // ADMIN thấy toàn bộ. Manager chỉ thấy đơn của người mình quản lý trực tiếp
-    // (Employee.ManagerId), không thấy đơn của phòng ban/người khác.
+    // ADMIN thấy toàn bộ. Manager thấy đơn của người mình quản lý trực tiếp — HOẶC đơn của
+    // người mà quản lý trực tiếp của họ đang nghỉ phép (đẩy việc duyệt lên mình), xem
+    // IApprovalDelegationResolver để biết chi tiết cơ chế đẩy lên khi quản lý vắng mặt.
     private async Task<IEnumerable<LeaveRequestDto>> FilterByTeamAsync(
         IEnumerable<LeaveRequest> requests, string requesterEmployeeCode, bool isAdmin)
     {
@@ -199,7 +220,17 @@ public class LeaveRequestService : ILeaveRequestService
         var requester = await _employeeRepository.GetByEmployeeCodeAsync(requesterEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
 
-        return requests.Where(r => r.Employee.ManagerId == requester.Id).Select(ToDto);
+        var result = new List<LeaveRequestDto>();
+        foreach (var r in requests)
+        {
+            var approver = await _approvalDelegationResolver.ResolveApproverAsync(r.Employee);
+            if (approver?.Id == requester.Id)
+            {
+                result.Add(ToDto(r));
+            }
+        }
+
+        return result;
     }
 
     public async Task<LeaveRequestDto> ApproveAsync(long leaveRequestId, string approverEmployeeCode, bool isAdmin)
@@ -210,9 +241,13 @@ public class LeaveRequestService : ILeaveRequestService
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
             ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
 
-        if (!isAdmin && leaveRequest.Employee.ManagerId != approver.Id)
+        if (!isAdmin)
         {
-            throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            var effectiveApprover = await _approvalDelegationResolver.ResolveApproverAsync(leaveRequest.Employee);
+            if (effectiveApprover?.Id != approver.Id)
+            {
+                throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            }
         }
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
@@ -223,13 +258,13 @@ public class LeaveRequestService : ILeaveRequestService
         leaveRequest.Status = LeaveRequestStatus.Approved;
         leaveRequest.ApprovedBy = approver.Id;
         leaveRequest.Approver = approver;
-        leaveRequest.ApprovedAt = DateTime.UtcNow;
-        leaveRequest.UpdatedAt = DateTime.UtcNow;
+        leaveRequest.ApprovedAt = VietnamClock.Now;
+        leaveRequest.UpdatedAt = VietnamClock.Now;
 
         var balance = await _leaveBalanceService.GetOrCreateAsync(leaveRequest.Employee, leaveRequest.LeaveType, leaveRequest.StartDate);
         balance.UsedTime += leaveRequest.TotalTime;
         balance.RemainingTime -= leaveRequest.TotalTime;
-        balance.UpdatedAt = DateTime.UtcNow;
+        balance.UpdatedAt = VietnamClock.Now;
 
         await _leaveRequestRepository.SaveChangesAsync();
 
@@ -244,9 +279,13 @@ public class LeaveRequestService : ILeaveRequestService
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
             ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
 
-        if (!isAdmin && leaveRequest.Employee.ManagerId != approver.Id)
+        if (!isAdmin)
         {
-            throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            var effectiveApprover = await _approvalDelegationResolver.ResolveApproverAsync(leaveRequest.Employee);
+            if (effectiveApprover?.Id != approver.Id)
+            {
+                throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            }
         }
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
@@ -257,9 +296,9 @@ public class LeaveRequestService : ILeaveRequestService
         leaveRequest.Status = LeaveRequestStatus.Rejected;
         leaveRequest.ApprovedBy = approver.Id;
         leaveRequest.Approver = approver;
-        leaveRequest.ApprovedAt = DateTime.UtcNow;
+        leaveRequest.ApprovedAt = VietnamClock.Now;
         leaveRequest.RejectionReason = rejectionReason;
-        leaveRequest.UpdatedAt = DateTime.UtcNow;
+        leaveRequest.UpdatedAt = VietnamClock.Now;
 
         await _leaveRequestRepository.SaveChangesAsync();
 

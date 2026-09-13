@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Domain.Entities.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,7 +44,7 @@ public static class MenuSeeder
     // thay vì bị bỏ qua toàn bộ như trước (AnyAsync() chặn cả seed).
     public static async Task SeedAsync(ApplicationDbContext context)
     {
-        var now = DateTime.UtcNow;
+        var now = VietnamClock.Now;
 
         // Audit Log là trang dùng chung cho toàn hệ thống (chỉ 1 menu, route /admin/audit),
         // không phải trang riêng theo role. Bản seed trước có lúc tạo MANAGER_AUDIT (route

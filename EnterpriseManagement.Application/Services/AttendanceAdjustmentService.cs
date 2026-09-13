@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Attendance;
@@ -10,15 +11,18 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     private readonly IAttendanceAdjustmentRepository _adjustmentRepository;
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly IApprovalDelegationResolver _approvalDelegationResolver;
 
     public AttendanceAdjustmentService(
         IAttendanceAdjustmentRepository adjustmentRepository,
         IAttendanceRepository attendanceRepository,
-        IEmployeeRepository employeeRepository)
+        IEmployeeRepository employeeRepository,
+        IApprovalDelegationResolver approvalDelegationResolver)
     {
         _adjustmentRepository = adjustmentRepository;
         _attendanceRepository = attendanceRepository;
         _employeeRepository = employeeRepository;
+        _approvalDelegationResolver = approvalDelegationResolver;
     }
 
     public async Task<AttendanceAdjustmentDto> SubmitAsync(SubmitAdjustmentRequest request, string employeeCode)
@@ -36,7 +40,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
                 EmployeeId = employee.Id,
                 AttendanceDate = request.AttendanceDate,
                 Status = AttendanceStatus.Absent,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamClock.Now
             };
             await _attendanceRepository.AddAsync(record);
         }
@@ -51,7 +55,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             OldCheckOutTime = record.CheckOutTime,
             NewCheckOutTime = request.NewCheckOutTime,
             Status = ApprovalStatus.Pending,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _adjustmentRepository.AddAsync(adjustment);
@@ -60,10 +64,32 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         return ToDto(adjustment, record.AttendanceDate, employee.EmployeeCode, $"{employee.FirstName} {employee.LastName}");
     }
 
-    public async Task<IEnumerable<AttendanceAdjustmentDto>> GetPendingAsync()
+    public async Task<IEnumerable<AttendanceAdjustmentDto>> GetPendingAsync(string requesterEmployeeCode, bool isAdmin)
     {
         var adjustments = await _adjustmentRepository.GetPendingAsync();
-        return adjustments.Select(a => ToDto(a, a.Attendance.AttendanceDate, a.Requester.EmployeeCode, $"{a.Requester.FirstName} {a.Requester.LastName}"));
+
+        if (isAdmin)
+        {
+            return adjustments.Select(a => ToDto(a, a.Attendance.AttendanceDate, a.Requester.EmployeeCode, $"{a.Requester.FirstName} {a.Requester.LastName}"));
+        }
+
+        var requester = await _employeeRepository.GetByEmployeeCodeAsync(requesterEmployeeCode)
+            ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+
+        var result = new List<AttendanceAdjustmentDto>();
+        foreach (var a in adjustments)
+        {
+            // ADMIN thấy toàn bộ (đã trả ở trên). Manager thấy đơn của người mình quản lý trực
+            // tiếp — hoặc của người mà quản lý trực tiếp của họ đang nghỉ phép (đẩy việc duyệt
+            // lên mình), xem IApprovalDelegationResolver để biết chi tiết.
+            var approver = await _approvalDelegationResolver.ResolveApproverAsync(a.Requester);
+            if (approver?.Id == requester.Id)
+            {
+                result.Add(ToDto(a, a.Attendance.AttendanceDate, a.Requester.EmployeeCode, $"{a.Requester.FirstName} {a.Requester.LastName}"));
+            }
+        }
+
+        return result;
     }
 
     public async Task<IEnumerable<AttendanceAdjustmentDto>> GetByEmployeeAsync(string employeeCode)
@@ -76,13 +102,22 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             $"{employee.FirstName} {employee.LastName}", a.Approver));
     }
 
-    public async Task<AttendanceAdjustmentDto> ApproveAsync(long adjustmentId, string approverEmployeeCode)
+    public async Task<AttendanceAdjustmentDto> ApproveAsync(long adjustmentId, string approverEmployeeCode, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
 
         var adjustment = await _adjustmentRepository.GetByIdAsync(adjustmentId)
             ?? throw new InvalidOperationException($"Adjustment {adjustmentId} not found.");
+
+        if (!isAdmin)
+        {
+            var effectiveApprover = await _approvalDelegationResolver.ResolveApproverAsync(adjustment.Requester);
+            if (effectiveApprover?.Id != approver.Id)
+            {
+                throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            }
+        }
 
         if (adjustment.Status != ApprovalStatus.Pending)
         {
@@ -91,7 +126,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
 
         adjustment.Status = ApprovalStatus.Approved;
         adjustment.ApprovedBy = approver.Id;
-        adjustment.ApprovedAt = DateTime.UtcNow;
+        adjustment.ApprovedAt = VietnamClock.Now;
 
         // Cùng 1 DbContext (Scoped) đang theo dõi cả adjustment lẫn adjustment.Attendance,
         // nên SaveChangesAsync() dưới đây commit cả 2 thay đổi trong 1 transaction duy nhất.
@@ -118,7 +153,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             }
         }
 
-        adjustment.Attendance.UpdatedAt = DateTime.UtcNow;
+        adjustment.Attendance.UpdatedAt = VietnamClock.Now;
 
         await _adjustmentRepository.SaveChangesAsync();
 
@@ -126,13 +161,22 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);
     }
 
-    public async Task<AttendanceAdjustmentDto> RejectAsync(long adjustmentId, string approverEmployeeCode)
+    public async Task<AttendanceAdjustmentDto> RejectAsync(long adjustmentId, string approverEmployeeCode, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
 
         var adjustment = await _adjustmentRepository.GetByIdAsync(adjustmentId)
             ?? throw new InvalidOperationException($"Adjustment {adjustmentId} not found.");
+
+        if (!isAdmin)
+        {
+            var effectiveApprover = await _approvalDelegationResolver.ResolveApproverAsync(adjustment.Requester);
+            if (effectiveApprover?.Id != approver.Id)
+            {
+                throw new InvalidOperationException("Bạn không phải quản lý trực tiếp của nhân viên này.");
+            }
+        }
 
         if (adjustment.Status != ApprovalStatus.Pending)
         {
@@ -141,7 +185,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
 
         adjustment.Status = ApprovalStatus.Rejected;
         adjustment.ApprovedBy = approver.Id;
-        adjustment.ApprovedAt = DateTime.UtcNow;
+        adjustment.ApprovedAt = VietnamClock.Now;
 
         await _adjustmentRepository.SaveChangesAsync();
 

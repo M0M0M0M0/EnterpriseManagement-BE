@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.HR;
@@ -40,7 +41,7 @@ public class DepartmentService : IDepartmentService
             ManagerId = request.ManagerId,
             Description = request.Description,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _departmentRepository.AddAsync(department);
@@ -58,7 +59,7 @@ public class DepartmentService : IDepartmentService
         department.DepartmentName = request.DepartmentName;
         department.ManagerId = request.ManagerId;
         department.Description = request.Description;
-        department.UpdatedAt = DateTime.UtcNow;
+        department.UpdatedAt = VietnamClock.Now;
 
         await _departmentRepository.SaveChangesAsync();
 
@@ -72,7 +73,7 @@ public class DepartmentService : IDepartmentService
             ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
 
         department.IsActive = isActive;
-        department.UpdatedAt = DateTime.UtcNow;
+        department.UpdatedAt = VietnamClock.Now;
 
         await _departmentRepository.SaveChangesAsync();
 

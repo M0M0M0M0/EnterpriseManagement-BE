@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Domain.Entities.HR;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +16,7 @@ public static class PositionSeeder
             return;
         }
 
-        var now = DateTime.UtcNow;
+        var now = VietnamClock.Now;
         context.Positions.AddRange(
             new Position { PositionCode = "HEAD", PositionName = "Trưởng phòng", RankLevel = 10, IsActive = true, CreatedAt = now },
             new Position { PositionCode = "DEPUTY", PositionName = "Phó phòng", RankLevel = 20, IsActive = true, CreatedAt = now },

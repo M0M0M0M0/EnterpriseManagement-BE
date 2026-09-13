@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.HR;
@@ -50,7 +51,7 @@ public class PositionService : IPositionService
             RankLevel = request.RankLevel,
             RoleCode = request.RoleCode,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _positionRepository.AddAsync(position);
@@ -71,14 +72,14 @@ public class PositionService : IPositionService
             {
                 PositionId = position.Id,
                 StandardSalary = standardSalary,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = VietnamClock.Now
             };
             await _positionSalaryRepository.AddAsync(salary);
         }
         else
         {
             salary.StandardSalary = standardSalary;
-            salary.UpdatedAt = DateTime.UtcNow;
+            salary.UpdatedAt = VietnamClock.Now;
         }
 
         await _positionSalaryRepository.SaveChangesAsync();
@@ -98,7 +99,7 @@ public class PositionService : IPositionService
         position.Description = request.Description;
         position.RankLevel = request.RankLevel;
         position.RoleCode = request.RoleCode;
-        position.UpdatedAt = DateTime.UtcNow;
+        position.UpdatedAt = VietnamClock.Now;
 
         await _positionRepository.SaveChangesAsync();
 
@@ -112,7 +113,7 @@ public class PositionService : IPositionService
             ?? throw new InvalidOperationException($"Position code '{positionCode}' not found.");
 
         position.IsActive = isActive;
-        position.UpdatedAt = DateTime.UtcNow;
+        position.UpdatedAt = VietnamClock.Now;
 
         await _positionRepository.SaveChangesAsync();
 

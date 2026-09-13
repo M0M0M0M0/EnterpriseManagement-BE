@@ -1,3 +1,4 @@
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Identity;
@@ -34,7 +35,7 @@ public class PermissionService : IPermissionService
             Module = request.Module,
             Description = request.Description,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = VietnamClock.Now
         };
 
         await _permissionRepository.AddAsync(permission);
