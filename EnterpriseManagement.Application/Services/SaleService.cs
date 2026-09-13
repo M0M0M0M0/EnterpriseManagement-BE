@@ -10,17 +10,20 @@ public class SaleService : ISaleService
 {
     private readonly ISaleRepository _saleRepository;
     private readonly ICustomerRepository _customerRepository;
+    private readonly ICustomerService _customerService;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
 
     public SaleService(
         ISaleRepository saleRepository,
         ICustomerRepository customerRepository,
+        ICustomerService customerService,
         IEmployeeRepository employeeRepository,
         IApprovalDelegationResolver approvalDelegationResolver)
     {
         _saleRepository = saleRepository;
         _customerRepository = customerRepository;
+        _customerService = customerService;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
     }
@@ -30,8 +33,7 @@ public class SaleService : ISaleService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
-        var customer = await _customerRepository.GetByCodeAsync(request.CustomerCode)
-            ?? throw new InvalidOperationException($"Customer code '{request.CustomerCode}' not found.");
+        var customer = await ResolveCustomerAsync(request, employeeCode);
 
         var sale = new Sale
         {
@@ -50,6 +52,36 @@ public class SaleService : ISaleService
 
         var created = await _saleRepository.GetByCodeAsync(sale.SaleCode);
         return ToDto(created!);
+    }
+
+    // Chọn đúng 1 trong 2: khách hàng có sẵn (CustomerCode) hoặc khách hàng mới nhập kèm
+    // (NewCustomerName+NewCustomerPhone) — khách hàng mới được tạo/dùng lại qua
+    // FindOrCreatePotentialAsync (dedupe theo SĐT), ở trạng thái Potential cho đến khi sale
+    // này được duyệt (xem ChangeStatusAsync).
+    private async Task<Customer> ResolveCustomerAsync(SubmitSaleRequest request, string employeeCode)
+    {
+        var hasExistingCustomer = !string.IsNullOrWhiteSpace(request.CustomerCode);
+        var hasNewCustomer = !string.IsNullOrWhiteSpace(request.NewCustomerName) || !string.IsNullOrWhiteSpace(request.NewCustomerPhone);
+
+        if (hasExistingCustomer == hasNewCustomer)
+        {
+            throw new InvalidOperationException(
+                "Vui lòng chọn một khách hàng có sẵn HOẶC nhập thông tin khách hàng mới (không được cả hai hoặc để trống cả hai).");
+        }
+
+        if (hasExistingCustomer)
+        {
+            return await _customerRepository.GetByCodeAsync(request.CustomerCode!)
+                ?? throw new InvalidOperationException($"Customer code '{request.CustomerCode}' not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NewCustomerName) || string.IsNullOrWhiteSpace(request.NewCustomerPhone))
+        {
+            throw new InvalidOperationException("Vui lòng nhập đủ tên và số điện thoại cho khách hàng mới.");
+        }
+
+        return await _customerService.FindOrCreatePotentialAsync(
+            request.NewCustomerName, request.NewCustomerPhone, request.NewCustomerEmail, request.NewCustomerAddress, employeeCode);
     }
 
     public async Task<IEnumerable<SaleDto>> GetByEmployeeAsync(string employeeCode)
@@ -126,17 +158,47 @@ public class SaleService : ISaleService
 
     public async Task<SaleDto> ApproveAsync(long saleId, string approverEmployeeCode, bool isAdmin)
     {
-        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Confirmed, "approved");
+        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Confirmed, "approved", null);
         return ToDto(sale);
     }
 
-    public async Task<SaleDto> RejectAsync(long saleId, string approverEmployeeCode, bool isAdmin)
+    public async Task<SaleDto> RejectAsync(long saleId, string approverEmployeeCode, bool isAdmin, string rejectionReason)
     {
-        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Cancelled, "rejected");
+        if (string.IsNullOrWhiteSpace(rejectionReason))
+        {
+            throw new InvalidOperationException("Vui lòng nhập lý do từ chối.");
+        }
+
+        var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Cancelled, "rejected", rejectionReason);
         return ToDto(sale);
     }
 
-    private async Task<Sale> ChangeStatusAsync(long saleId, string approverEmployeeCode, bool isAdmin, SaleStatus newStatus, string action)
+    // Nhân viên tự hủy sale của mình khi còn Pending — không cần thẩm quyền duyệt, khác với
+    // reject (chỉ Manager/Admin mới reject được). Pattern giống LeaveRequestService.CancelAsync.
+    public async Task<SaleDto> CancelAsync(long saleId, string employeeCode)
+    {
+        var sale = await _saleRepository.GetByIdAsync(saleId)
+            ?? throw new InvalidOperationException($"Sale {saleId} not found.");
+
+        if (sale.Employee.EmployeeCode != employeeCode)
+        {
+            throw new InvalidOperationException("Only the employee who submitted this sale can cancel it.");
+        }
+
+        if (sale.Status != SaleStatus.Pending)
+        {
+            throw new InvalidOperationException("Only pending sales can be cancelled.");
+        }
+
+        sale.Status = SaleStatus.Cancelled;
+        sale.UpdatedAt = VietnamClock.Now;
+
+        await _saleRepository.SaveChangesAsync();
+
+        return ToDto(sale);
+    }
+
+    private async Task<Sale> ChangeStatusAsync(long saleId, string approverEmployeeCode, bool isAdmin, SaleStatus newStatus, string action, string? rejectionReason)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
             ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
@@ -159,10 +221,20 @@ public class SaleService : ISaleService
         }
 
         sale.Status = newStatus;
+        sale.RejectionReason = rejectionReason;
         sale.ApprovedBy = approver.Id;
         sale.Approver = approver;
         sale.ApprovedAt = VietnamClock.Now;
         sale.UpdatedAt = VietnamClock.Now;
+
+        // Khách hàng mới nhập kèm sale chỉ được "công nhận" (Active, hiện trong danh sách chọn
+        // cho sale khác) sau khi sale này được duyệt. Nếu bị từ chối, khách hàng vẫn giữ
+        // nguyên Potential — không cần xử lý gì thêm ở nhánh reject.
+        if (newStatus == SaleStatus.Confirmed && sale.Customer.Status == CustomerStatus.Potential)
+        {
+            sale.Customer.Status = CustomerStatus.Active;
+            sale.Customer.UpdatedAt = VietnamClock.Now;
+        }
 
         await _saleRepository.SaveChangesAsync();
 
@@ -193,6 +265,7 @@ public class SaleService : ISaleService
         OrderDate = sale.OrderDate,
         Status = sale.Status.ToString(),
         Note = sale.Note,
+        RejectionReason = sale.RejectionReason,
         ApproverName = sale.Approver is null ? null : $"{sale.Approver.FirstName} {sale.Approver.LastName}",
         ApprovedAt = sale.ApprovedAt
     };

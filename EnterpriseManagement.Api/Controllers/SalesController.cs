@@ -91,11 +91,27 @@ public class SalesController : ControllerBase
 
     [HttpPut("{id}/reject")]
     [RequirePermission("sales.approve")]
-    public async Task<ActionResult<SaleDto>> Reject(long id)
+    public async Task<ActionResult<SaleDto>> Reject(long id, RejectSaleRequest request)
     {
         try
         {
-            var result = await _saleService.RejectAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
+            var result = await _saleService.RejectAsync(
+                id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"), request.RejectionReason);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id}/cancel")]
+    [RequirePermission("sales.self")]
+    public async Task<ActionResult<SaleDto>> Cancel(long id)
+    {
+        try
+        {
+            var result = await _saleService.CancelAsync(id, _currentUserService.EmployeeCode!);
             return Ok(result);
         }
         catch (InvalidOperationException ex)

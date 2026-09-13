@@ -19,6 +19,11 @@ public class CustomerRepository : ICustomerRepository
             .Include(c => c.AssignedEmployee)
             .FirstOrDefaultAsync(c => c.CustomerCode == customerCode);
 
+    public async Task<Customer?> GetByPhoneAsync(string phone) =>
+        await _context.Customers
+            .Include(c => c.AssignedEmployee)
+            .FirstOrDefaultAsync(c => c.Phone == phone);
+
     public async Task<IEnumerable<Customer>> GetAllAsync() =>
         await _context.Customers
             .Include(c => c.AssignedEmployee)

@@ -21,6 +21,7 @@ public static class MenuSeeder
         new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 3, "page.employee.leave", "EMPLOYEE"),
         new("EMPLOYEE_SALES", "Sale & KPI của tôi", "ChartMultipleRegular", "/employee/sales", 4, "page.employee.sales", "EMPLOYEE"),
         new("EMPLOYEE_CUSTOMERS", "Khách hàng", "PeopleTeamRegular", "/employee/customers", 5, "page.employee.customers", "EMPLOYEE"),
+        new("EMPLOYEE_COMMISSION", "Hoa hồng của tôi", "MoneyRegular", "/employee/commission", 6, "page.employee.commission", "EMPLOYEE"),
 
         new("MANAGER_DASHBOARD", "Dashboard tổng quan", "HomeRegular", "/manager/dashboard", 1, "page.manager.dashboard", "MANAGER"),
         new("MANAGER_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/manager/employees", 2, "page.manager.employees", "MANAGER"),
@@ -29,14 +30,16 @@ public static class MenuSeeder
         new("MANAGER_SALES", "Quản lý KPI & Sale", "ChartMultipleRegular", "/manager/sales", 5, "page.manager.sales", "MANAGER"),
         new("MANAGER_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/manager/customers", 6, "page.manager.customers", "MANAGER"),
         new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 7, "page.manager.organization", "MANAGER"),
+        new("MANAGER_KPI_COMMISSION", "KPI & Hoa hồng", "MoneyRegular", "/manager/kpi-commission", 8, "page.manager.kpicommission", "MANAGER"),
 
         new("ADMIN_USERS", "Quản lý tài khoản", "ShieldRegular", "/admin/users", 1, "page.admin.users", "ADMIN"),
         new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
         new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),
         new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 4, "page.admin.positions", "ADMIN"),
-        new("ADMIN_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/admin/customers", 5, "page.admin.customers", "ADMIN"),
-        new("ADMIN_AUDIT", "Audit Log", "HistoryRegular", "/admin/audit", 6, "page.admin.audit", "ADMIN"),
-        new("ADMIN_SYSTEM", "System Administration", "SettingsRegular", "/admin/system", 7, "page.admin.system", "ADMIN"),
+        new("ADMIN_SALES", "Quản lý Sale", "ChartMultipleRegular", "/admin/sales", 5, "page.admin.sales", "ADMIN"),
+        new("ADMIN_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/admin/customers", 6, "page.admin.customers", "ADMIN"),
+        new("ADMIN_AUDIT", "Audit Log", "HistoryRegular", "/admin/audit", 7, "page.admin.audit", "ADMIN"),
+        new("ADMIN_SYSTEM", "System Administration", "SettingsRegular", "/admin/system", 8, "page.admin.system", "ADMIN"),
     };
 
     // Idempotent: chỉ chèn những MenuCode chưa tồn tại, để khi thêm seed mới (vd MANAGER_AUDIT)
@@ -131,6 +134,31 @@ public static class MenuSeeder
         // khớp menu theo BẤT KỲ permission nào trong MenuPermissions, menu EMPLOYEE_ATTENDANCE tự
         // xuất hiện trong /api/menus/mine của Manager mà không cần thêm MenuCode mới.
         await GrantManagerSelfAttendanceMenuAsync(context, now);
+
+        // Manager cũng có thể được tính hoa hồng cho chính họ (vẫn là người trực tiếp bán hàng
+        // ở công ty nhỏ) — tái dùng luôn trang "Hoa hồng của tôi" của Employee thay vì tạo route
+        // riêng, theo đúng cách làm với GrantManagerSelfAttendanceMenuAsync ở trên.
+        await GrantManagerSelfCommissionMenuAsync(context, now);
+    }
+
+    private static async Task GrantManagerSelfCommissionMenuAsync(ApplicationDbContext context, DateTime now)
+    {
+        var managerRole = await context.Roles.FirstOrDefaultAsync(r => r.RoleCode == "MANAGER");
+        var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == "page.employee.commission");
+        if (managerRole is null || permission is null) return;
+
+        var alreadyGranted = await context.RolePermissions
+            .AnyAsync(rp => rp.RoleId == managerRole.Id && rp.PermissionId == permission.Id);
+        if (alreadyGranted) return;
+
+        context.RolePermissions.Add(new RolePermission
+        {
+            Role = managerRole,
+            Permission = permission,
+            GrantedAt = now,
+            CreatedAt = now
+        });
+        await context.SaveChangesAsync();
     }
 
     private static async Task GrantManagerSelfAttendanceMenuAsync(ApplicationDbContext context, DateTime now)

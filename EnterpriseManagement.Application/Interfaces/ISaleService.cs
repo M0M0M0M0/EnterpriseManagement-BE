@@ -10,5 +10,6 @@ public interface ISaleService
     Task<IEnumerable<SaleDto>> GetPendingAsync(string requesterEmployeeCode, bool isAdmin);
     Task<IEnumerable<SaleDto>> GetHistoryAsync(string requesterEmployeeCode, bool isAdmin);
     Task<SaleDto> ApproveAsync(long saleId, string approverEmployeeCode, bool isAdmin);
-    Task<SaleDto> RejectAsync(long saleId, string approverEmployeeCode, bool isAdmin);
+    Task<SaleDto> RejectAsync(long saleId, string approverEmployeeCode, bool isAdmin, string rejectionReason);
+    Task<SaleDto> CancelAsync(long saleId, string employeeCode);
 }

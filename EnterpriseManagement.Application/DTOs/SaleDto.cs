@@ -12,6 +12,7 @@ public class SaleDto
     public DateTime OrderDate { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Note { get; set; }
+    public string? RejectionReason { get; set; }
     public string? ApproverName { get; set; }
     public DateTime? ApprovedAt { get; set; }
 }

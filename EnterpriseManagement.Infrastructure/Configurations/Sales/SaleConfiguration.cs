@@ -15,6 +15,7 @@ public class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(x => x.Amount).HasPrecision(18, 2);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(x => x.Note).HasMaxLength(1000);
+        builder.Property(x => x.RejectionReason).HasMaxLength(1000);
 
         builder.HasIndex(x => x.SaleCode).IsUnique();
 

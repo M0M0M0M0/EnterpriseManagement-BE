@@ -20,6 +20,11 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
 
         builder.HasIndex(x => x.CustomerCode).IsUnique();
 
+        // Phone là unique key thật để phát hiện khách hàng trùng — filtered index vì cột vẫn
+        // nullable (dữ liệu cũ có thể chưa có SĐT), Phone chỉ bắt buộc ở tầng validate
+        // (CustomerService) cho các khách hàng tạo mới từ nay trở đi.
+        builder.HasIndex(x => x.Phone).IsUnique().HasFilter("[Phone] IS NOT NULL");
+
         builder.HasOne(x => x.AssignedEmployee)
             .WithMany()
             .HasForeignKey(x => x.AssignedEmployeeId)
