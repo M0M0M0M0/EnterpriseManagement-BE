@@ -14,8 +14,8 @@ public class SalesCommission
     public DateOnly PeriodEndDate { get; set; }
     public decimal TotalRevenue { get; set; }
 
-    public long KpiTargetId { get; set; }
-    public SalesKpiTarget KpiTarget { get; set; } = null!;
+    public long KpiLevelId { get; set; }
+    public KpiLevel KpiLevel { get; set; } = null!;
 
     public decimal CommissionRate { get; set; }
     public decimal CommissionAmount { get; set; }

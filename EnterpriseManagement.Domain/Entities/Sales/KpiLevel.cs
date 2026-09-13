@@ -1,14 +1,15 @@
 namespace EnterpriseManagement.Domain.Entities.Sales;
 
-public class SalesKpiTarget
+public class KpiLevel
 {
     public long Id { get; set; }
-    public string TargetName { get; set; } = string.Empty;
+
+    public long KpiPlanId { get; set; }
+    public KpiPlan KpiPlan { get; set; } = null!;
+
+    public int LevelOrder { get; set; }
     public decimal MinimumRevenue { get; set; }
     public decimal CommissionRate { get; set; }
-    public DateOnly EffectiveFrom { get; set; }
-    public DateOnly? EffectiveTo { get; set; }
-    public bool IsActive { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

@@ -21,9 +21,9 @@ public class SalesCommissionConfiguration : IEntityTypeConfiguration<SalesCommis
             .HasForeignKey(x => x.EmployeeId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne(x => x.KpiTarget)
+        builder.HasOne(x => x.KpiLevel)
             .WithMany()
-            .HasForeignKey(x => x.KpiTargetId)
+            .HasForeignKey(x => x.KpiLevelId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Approver)

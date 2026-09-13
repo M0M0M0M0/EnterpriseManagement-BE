@@ -19,6 +19,7 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.KpiPlan).ThenInclude(p => p!.Levels)
             .FirstOrDefaultAsync(e => e.Id == id);
 
     public async Task<IEnumerable<Employee>> GetAllAsync() =>
@@ -26,6 +27,7 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.KpiPlan).ThenInclude(p => p!.Levels)
             .ToListAsync();
 
     public async Task<Employee?> GetByEmployeeCodeAsync(string employeeCode) =>
@@ -33,6 +35,7 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.KpiPlan).ThenInclude(p => p!.Levels)
             .FirstOrDefaultAsync(e => e.EmployeeCode == employeeCode);
 
     public async Task<IEnumerable<Employee>> GetByManagerIdAsync(long managerId) =>
@@ -40,6 +43,7 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.KpiPlan).ThenInclude(p => p!.Levels)
             .Where(e => e.ManagerId == managerId)
             .ToListAsync();
 

@@ -44,7 +44,8 @@ public class ApplicationDbContext : DbContext
     // Sales
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Sale> Sales => Set<Sale>();
-    public DbSet<SalesKpiTarget> SalesKpiTargets => Set<SalesKpiTarget>();
+    public DbSet<KpiPlan> KpiPlans => Set<KpiPlan>();
+    public DbSet<KpiLevel> KpiLevels => Set<KpiLevel>();
     public DbSet<SalesCommission> SalesCommissions => Set<SalesCommission>();
 
     // Payroll

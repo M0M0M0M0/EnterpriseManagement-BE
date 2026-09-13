@@ -27,9 +27,18 @@ public static class ActionPermissionSeeder
         new("leavebalance.manage", "Cấp lại số ngày/giờ nghỉ", "leave", "Chỉnh số ngày/giờ nghỉ còn lại của nhân viên.", new[] { "MANAGER" }),
         new("leavetype.manage", "Quản lý loại nghỉ phép", "leave", "Tạo/sửa loại nghỉ phép và quy tắc tích lũy.", new[] { "ADMIN" }),
 
-        new("sales.self", "Ghi nhận Sale", "sales", "Gửi, xem và sửa đơn hàng Sale của chính mình.", new[] { "EMPLOYEE" }),
+        // Manager cũng được tính hoa hồng cho chính mình (xem GrantManagerSelfCommissionMenuAsync
+        // trong MenuSeeder) nên cần luôn "sales.self" để gọi GET /api/commissions/mine — permission
+        // này vốn dùng chung cho cả việc tự ghi nhận Sale, giữ nguyên ý nghĩa, chỉ mở rộng RoleCodes
+        // giống cách "attendance.punch" đã cho MANAGER tự chấm công như EMPLOYEE.
+        new("sales.self", "Ghi nhận Sale", "sales", "Gửi, xem và sửa đơn hàng Sale của chính mình.", new[] { "EMPLOYEE", "MANAGER" }),
         new("sales.view", "Xem Sale phòng ban", "sales", "Xem danh sách Sale đang chờ duyệt và lịch sử.", new[] { "MANAGER" }),
         new("sales.approve", "Duyệt/từ chối Sale", "sales", "Duyệt hoặc từ chối đơn Sale.", new[] { "MANAGER" }),
+        // Đặt tên trung lập (không gắn cứng "manager") vì đây là quyền theo NGHIỆP VỤ (ai phụ
+        // trách KPI/hoa hồng của đội), không phải quyền kỹ thuật của role — nếu sau này có role
+        // khác (vd "Trưởng phòng") đảm nhận việc này, chỉ cần đổi RoleCodes ở seed, không cần sửa
+        // code hay permission code.
+        new("sales.kpi.manage", "Quản lý KPI & Hoa hồng", "sales", "Tạo/sửa mức KPI, tính và duyệt hoa hồng cho nhân viên.", new[] { "MANAGER" }),
 
         new("customer.create", "Tạo khách hàng", "customer", "Thêm khách hàng mới vào hệ thống.", new[] { "EMPLOYEE", "MANAGER", "ADMIN" }),
 

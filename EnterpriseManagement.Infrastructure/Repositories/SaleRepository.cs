@@ -58,4 +58,18 @@ public class SaleRepository : ISaleRepository
 
     public Task<int> SaveChangesAsync() =>
         _context.SaveChangesAsync();
+
+    public async Task<IEnumerable<Sale>> GetConfirmedByEmployeeAndRangeAsync(
+        long employeeId, DateOnly periodStart, DateOnly periodEnd)
+    {
+        var startDateTime = periodStart.ToDateTime(TimeOnly.MinValue);
+        var endDateTime = periodEnd.ToDateTime(TimeOnly.MaxValue);
+
+        return await _context.Sales
+            .Where(s => s.EmployeeId == employeeId
+                && s.Status == SaleStatus.Confirmed
+                && s.OrderDate >= startDateTime
+                && s.OrderDate <= endDateTime)
+            .ToListAsync();
+    }
 }
