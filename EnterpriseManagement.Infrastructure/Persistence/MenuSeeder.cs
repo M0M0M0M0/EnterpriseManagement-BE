@@ -54,76 +54,101 @@ public static class MenuSeeder
 
         var existingMenuCodes = (await context.Menus.Select(m => m.MenuCode).ToListAsync()).ToHashSet();
         var missingSeeds = Seeds.Where(s => !existingMenuCodes.Contains(s.MenuCode)).ToList();
-        if (missingSeeds.Count == 0)
+        if (missingSeeds.Count > 0)
         {
-            return;
-        }
+            var roles = await context.Roles.ToDictionaryAsync(r => r.RoleCode);
+            var permissionsByCode = await context.Permissions.ToDictionaryAsync(p => p.PermissionCode);
 
-        var roles = await context.Roles.ToDictionaryAsync(r => r.RoleCode);
-        var permissionsByCode = await context.Permissions.ToDictionaryAsync(p => p.PermissionCode);
-
-        foreach (var seed in missingSeeds)
-        {
-            if (permissionsByCode.ContainsKey(seed.PermissionCode)) continue;
-
-            var permission = new Permission
+            foreach (var seed in missingSeeds)
             {
-                PermissionCode = seed.PermissionCode,
-                PermissionName = seed.MenuName,
-                Module = "page",
-                Description = $"Quyền vào trang '{seed.MenuName}'.",
-                IsActive = true,
-                CreatedAt = now
-            };
-            permissionsByCode[seed.PermissionCode] = permission;
-            context.Permissions.Add(permission);
-        }
+                if (permissionsByCode.ContainsKey(seed.PermissionCode)) continue;
 
-        // Lưu trước để permission mới (nếu có) có Id thật, dùng để so trùng RolePermission bên dưới.
-        await context.SaveChangesAsync();
-
-        var existingRolePermissionKeys = (await context.RolePermissions
-                .Select(rp => new { rp.RoleId, rp.PermissionId })
-                .ToListAsync())
-            .Select(x => (x.RoleId, x.PermissionId))
-            .ToHashSet();
-
-        foreach (var group in missingSeeds.GroupBy(s => s.RoleCode))
-        {
-            if (!roles.TryGetValue(group.Key, out var role)) continue;
-
-            foreach (var seed in group)
-            {
-                var permission = permissionsByCode[seed.PermissionCode];
-                if (existingRolePermissionKeys.Contains((role.Id, permission.Id))) continue;
-
-                context.RolePermissions.Add(new RolePermission
+                var permission = new Permission
                 {
-                    Role = role,
-                    Permission = permission,
-                    GrantedAt = now,
+                    PermissionCode = seed.PermissionCode,
+                    PermissionName = seed.MenuName,
+                    Module = "page",
+                    Description = $"Quyền vào trang '{seed.MenuName}'.",
+                    IsActive = true,
                     CreatedAt = now
-                });
+                };
+                permissionsByCode[seed.PermissionCode] = permission;
+                context.Permissions.Add(permission);
             }
-        }
 
-        foreach (var seed in missingSeeds)
-        {
-            var menu = new Menu
+            // Lưu trước để permission mới (nếu có) có Id thật, dùng để so trùng RolePermission bên dưới.
+            await context.SaveChangesAsync();
+
+            var existingRolePermissionKeys = (await context.RolePermissions
+                    .Select(rp => new { rp.RoleId, rp.PermissionId })
+                    .ToListAsync())
+                .Select(x => (x.RoleId, x.PermissionId))
+                .ToHashSet();
+
+            foreach (var group in missingSeeds.GroupBy(s => s.RoleCode))
             {
-                MenuCode = seed.MenuCode,
-                MenuName = seed.MenuName,
-                Icon = seed.Icon,
-                Route = seed.Route,
-                DisplayOrder = seed.DisplayOrder,
-                IsVisible = true,
-                IsActive = true,
-                CreatedAt = now
-            };
-            menu.MenuPermissions.Add(new MenuPermission { Menu = menu, Permission = permissionsByCode[seed.PermissionCode] });
-            context.Menus.Add(menu);
+                if (!roles.TryGetValue(group.Key, out var role)) continue;
+
+                foreach (var seed in group)
+                {
+                    var permission = permissionsByCode[seed.PermissionCode];
+                    if (existingRolePermissionKeys.Contains((role.Id, permission.Id))) continue;
+
+                    context.RolePermissions.Add(new RolePermission
+                    {
+                        Role = role,
+                        Permission = permission,
+                        GrantedAt = now,
+                        CreatedAt = now
+                    });
+                }
+            }
+
+            foreach (var seed in missingSeeds)
+            {
+                var menu = new Menu
+                {
+                    MenuCode = seed.MenuCode,
+                    MenuName = seed.MenuName,
+                    Icon = seed.Icon,
+                    Route = seed.Route,
+                    DisplayOrder = seed.DisplayOrder,
+                    IsVisible = true,
+                    IsActive = true,
+                    CreatedAt = now
+                };
+                menu.MenuPermissions.Add(new MenuPermission { Menu = menu, Permission = permissionsByCode[seed.PermissionCode] });
+                context.Menus.Add(menu);
+            }
+
+            await context.SaveChangesAsync();
         }
 
+        // Manager cũng đi làm nên cần tự chấm công như Employee. Không tạo menu/route riêng —
+        // tái dùng thẳng trang "Chấm công" của Employee (route /employee/attendance) bằng cách
+        // cấp thêm permission "page.employee.attendance" cho MANAGER; nhờ MenuService.GetMineAsync
+        // khớp menu theo BẤT KỲ permission nào trong MenuPermissions, menu EMPLOYEE_ATTENDANCE tự
+        // xuất hiện trong /api/menus/mine của Manager mà không cần thêm MenuCode mới.
+        await GrantManagerSelfAttendanceMenuAsync(context, now);
+    }
+
+    private static async Task GrantManagerSelfAttendanceMenuAsync(ApplicationDbContext context, DateTime now)
+    {
+        var managerRole = await context.Roles.FirstOrDefaultAsync(r => r.RoleCode == "MANAGER");
+        var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == "page.employee.attendance");
+        if (managerRole is null || permission is null) return;
+
+        var alreadyGranted = await context.RolePermissions
+            .AnyAsync(rp => rp.RoleId == managerRole.Id && rp.PermissionId == permission.Id);
+        if (alreadyGranted) return;
+
+        context.RolePermissions.Add(new RolePermission
+        {
+            Role = managerRole,
+            Permission = permission,
+            GrantedAt = now,
+            CreatedAt = now
+        });
         await context.SaveChangesAsync();
     }
 

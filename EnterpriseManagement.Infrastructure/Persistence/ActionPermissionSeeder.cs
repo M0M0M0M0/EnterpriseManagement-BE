@@ -14,7 +14,7 @@ public static class ActionPermissionSeeder
 
     private static readonly ActionSeed[] Seeds =
     {
-        new("attendance.punch", "Chấm công", "attendance", "Check-in / check-out hằng ngày.", new[] { "EMPLOYEE" }),
+        new("attendance.punch", "Chấm công", "attendance", "Check-in / check-out hằng ngày.", new[] { "EMPLOYEE", "MANAGER" }),
         new("attendance.view.team", "Xem chấm công phòng ban", "attendance", "Xem bảng công của cả phòng ban.", new[] { "MANAGER" }),
         new("attendance.adjustment.self", "Gửi yêu cầu điều chỉnh công", "attendance", "Gửi và xem yêu cầu điều chỉnh công của chính mình.", new[] { "EMPLOYEE" }),
         new("attendance.adjustment.view", "Xem yêu cầu điều chỉnh công chờ duyệt", "attendance", "Xem danh sách yêu cầu điều chỉnh công đang chờ duyệt.", new[] { "MANAGER" }),
@@ -49,32 +49,51 @@ public static class ActionPermissionSeeder
         new("menu.manage", "Quản lý menu", "system", "Tạo, sửa, ẩn/hiện menu sidebar.", new[] { "ADMIN" }),
     };
 
+    // Idempotent: chỉ tạo permission chưa tồn tại, và luôn đồng bộ RolePermission theo đúng
+    // RoleCodes khai báo ở Seeds (kể cả permission đã tồn tại từ trước) — để khi code thêm 1
+    // role vào seed có sẵn (vd Manager cũng được attendance.punch), DB cũ chạy lại tự nhận
+    // đủ ở lần khởi động kế tiếp, không cần xoá permission để seed lại từ đầu.
     public static async Task SeedAsync(ApplicationDbContext context)
     {
-        if (await context.Permissions.AnyAsync(p => p.Module != "page"))
+        var now = DateTime.UtcNow;
+        var existingPermissionCodes = (await context.Permissions.Select(p => p.PermissionCode).ToListAsync()).ToHashSet();
+        var missingSeeds = Seeds.Where(s => !existingPermissionCodes.Contains(s.PermissionCode)).ToList();
+
+        if (missingSeeds.Count > 0)
         {
-            return;
+            foreach (var seed in missingSeeds)
+            {
+                context.Permissions.Add(new Permission
+                {
+                    PermissionCode = seed.PermissionCode,
+                    PermissionName = seed.PermissionName,
+                    Module = seed.Module,
+                    Description = seed.Description,
+                    IsActive = true,
+                    CreatedAt = now
+                });
+            }
+
+            await context.SaveChangesAsync();
         }
 
         var roles = await context.Roles.ToDictionaryAsync(r => r.RoleCode);
-        var now = DateTime.UtcNow;
+        var permissionsByCode = await context.Permissions.ToDictionaryAsync(p => p.PermissionCode);
+        var existingRolePermissionKeys = (await context.RolePermissions
+                .Select(rp => new { rp.RoleId, rp.PermissionId })
+                .ToListAsync())
+            .Select(x => (x.RoleId, x.PermissionId))
+            .ToHashSet();
 
+        var addedGrant = false;
         foreach (var seed in Seeds)
         {
-            var permission = new Permission
-            {
-                PermissionCode = seed.PermissionCode,
-                PermissionName = seed.PermissionName,
-                Module = seed.Module,
-                Description = seed.Description,
-                IsActive = true,
-                CreatedAt = now
-            };
-            context.Permissions.Add(permission);
+            if (!permissionsByCode.TryGetValue(seed.PermissionCode, out var permission)) continue;
 
             foreach (var roleCode in seed.RoleCodes)
             {
                 if (!roles.TryGetValue(roleCode, out var role)) continue;
+                if (existingRolePermissionKeys.Contains((role.Id, permission.Id))) continue;
 
                 context.RolePermissions.Add(new RolePermission
                 {
@@ -83,9 +102,13 @@ public static class ActionPermissionSeeder
                     GrantedAt = now,
                     CreatedAt = now
                 });
+                addedGrant = true;
             }
         }
 
-        await context.SaveChangesAsync();
+        if (addedGrant)
+        {
+            await context.SaveChangesAsync();
+        }
     }
 }
