@@ -33,7 +33,7 @@ public class LeaveRequestService : ILeaveRequestService
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
             ?? throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' not found.");
 
-        var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request);
+        var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request, DateTime.Now);
 
         var balance = await _leaveBalanceService.GetOrCreateAsync(employee, leaveType, startDate);
         if (balance.RemainingTime < totalTime)
@@ -63,26 +63,42 @@ public class LeaveRequestService : ILeaveRequestService
         return ToDto(created!);
     }
 
-    // Nghỉ ngắn (AccrualPeriod = MonthlyReset): client chọn giờ bắt đầu/kết thúc cụ thể,
-    // cùng 1 ngày, tính TotalTime theo số giờ thực tế.
-    // Các loại còn lại: client chỉ chọn buổi (Session), backend tự gán giờ cố định theo
-    // buổi. Nghỉ nhiều ngày bắt buộc chọn "Cả ngày" cho toàn bộ khoảng.
+    // Các khung giờ nghỉ ngắn cố định 30 phút, theo giờ hành chính (sáng 8h-12h, chiều
+    // 13h-17h — nghỉ trưa 12h-13h không tính). Mỗi đơn nghỉ ngắn = đúng 1 khung.
+    private static readonly TimeSpan[] ShortLeaveSlotStarts =
+    {
+        new(8, 0, 0), new(8, 30, 0), new(9, 0, 0), new(9, 30, 0),
+        new(10, 0, 0), new(10, 30, 0), new(11, 0, 0), new(11, 30, 0),
+        new(13, 0, 0), new(13, 30, 0), new(14, 0, 0), new(14, 30, 0),
+        new(15, 0, 0), new(15, 30, 0), new(16, 0, 0), new(16, 30, 0),
+    };
+
+    // Nghỉ ngắn (AccrualPeriod = MonthlyReset): luôn là ngày hôm nay (ngày submit), client chỉ
+    // chọn 1 trong các khung 30 phút cố định ở trên — không cho nhập giờ tự do.
+    // Các loại còn lại: client chọn buổi (Session), backend tự gán giờ cố định theo buổi.
+    // Nghỉ nhiều ngày bắt buộc chọn "Cả ngày" cho toàn bộ khoảng. Riêng "Nghỉ có phép"
+    // (ANNUAL) phải xin trước ít nhất 1 ngày làm việc để có người duyệt kịp sắp xếp công
+    // việc: submit trước/đúng 17h thì sớm nhất là xin cho ngày mai, submit sau 17h thì
+    // sớm nhất là xin cho ngày kia.
     private static (DateTime StartDate, DateTime EndDate, LeaveSession? Session, decimal TotalTime) ResolveRequestedTime(
-        LeaveType leaveType, SubmitLeaveRequest request)
+        LeaveType leaveType, SubmitLeaveRequest request, DateTime now)
     {
         if (leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset)
         {
-            if (request.StartDate.Date != request.EndDate.Date)
+            if (request.StartDate.Date != now.Date)
             {
-                throw new InvalidOperationException("Nghỉ ngắn chỉ áp dụng trong cùng một ngày.");
+                throw new InvalidOperationException("Nghỉ ngắn chỉ được xin cho ngày hôm nay.");
             }
-            if (request.StartDate >= request.EndDate)
+            if (!ShortLeaveSlotStarts.Contains(request.StartDate.TimeOfDay))
             {
-                throw new InvalidOperationException("Giờ kết thúc phải sau giờ bắt đầu.");
+                throw new InvalidOperationException("Vui lòng chọn một khung giờ 30 phút hợp lệ trong giờ hành chính.");
+            }
+            if (request.EndDate != request.StartDate.AddMinutes(30))
+            {
+                throw new InvalidOperationException("Mỗi đơn nghỉ ngắn chỉ áp dụng cho đúng 1 khung 30 phút.");
             }
 
-            var totalHours = (decimal)(request.EndDate - request.StartDate).TotalHours;
-            return (request.StartDate, request.EndDate, null, totalHours);
+            return (request.StartDate, request.EndDate, null, 0.5m);
         }
 
         if (!Enum.TryParse<LeaveSession>(request.Session, true, out var session))
@@ -99,6 +115,16 @@ public class LeaveRequestService : ILeaveRequestService
         if (startOnly != endOnly && session != LeaveSession.FullDay)
         {
             throw new InvalidOperationException("Nghỉ nhiều ngày chỉ được chọn buổi Cả ngày.");
+        }
+
+        if (leaveType.LeaveTypeCode == "ANNUAL")
+        {
+            var minDate = now.TimeOfDay <= new TimeSpan(17, 0, 0) ? now.Date.AddDays(1) : now.Date.AddDays(2);
+            if (startOnly < minDate)
+            {
+                throw new InvalidOperationException(
+                    $"Nghỉ có phép phải xin trước ít nhất 1 ngày để quản lý kịp duyệt. Ngày sớm nhất có thể xin: {minDate:dd/MM/yyyy}.");
+            }
         }
 
         var (start, end) = session switch
