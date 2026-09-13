@@ -8,11 +8,16 @@ public class PositionService : IPositionService
 {
     private readonly IPositionRepository _positionRepository;
     private readonly IPositionSalaryRepository _positionSalaryRepository;
+    private readonly IRoleRepository _roleRepository;
 
-    public PositionService(IPositionRepository positionRepository, IPositionSalaryRepository positionSalaryRepository)
+    public PositionService(
+        IPositionRepository positionRepository,
+        IPositionSalaryRepository positionSalaryRepository,
+        IRoleRepository roleRepository)
     {
         _positionRepository = positionRepository;
         _positionSalaryRepository = positionSalaryRepository;
+        _roleRepository = roleRepository;
     }
 
     public async Task<IEnumerable<PositionDto>> GetAllAsync()
@@ -35,12 +40,15 @@ public class PositionService : IPositionService
             throw new InvalidOperationException($"Position code '{request.PositionCode}' already exists.");
         }
 
+        await EnsureRoleExistsAsync(request.RoleCode);
+
         var position = new Position
         {
             PositionCode = request.PositionCode,
             PositionName = request.PositionName,
             Description = request.Description,
             RankLevel = request.RankLevel,
+            RoleCode = request.RoleCode,
             IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -84,9 +92,12 @@ public class PositionService : IPositionService
         var position = await _positionRepository.GetByCodeAsync(positionCode)
             ?? throw new InvalidOperationException($"Position code '{positionCode}' not found.");
 
+        await EnsureRoleExistsAsync(request.RoleCode);
+
         position.PositionName = request.PositionName;
         position.Description = request.Description;
         position.RankLevel = request.RankLevel;
+        position.RoleCode = request.RoleCode;
         position.UpdatedAt = DateTime.UtcNow;
 
         await _positionRepository.SaveChangesAsync();
@@ -108,6 +119,20 @@ public class PositionService : IPositionService
         return ToDto(position);
     }
 
+    private async Task EnsureRoleExistsAsync(string roleCode)
+    {
+        if (string.IsNullOrWhiteSpace(roleCode))
+        {
+            throw new InvalidOperationException("Vui lòng chọn role cho chức vụ này.");
+        }
+
+        var role = await _roleRepository.GetByCodeAsync(roleCode);
+        if (role is null)
+        {
+            throw new InvalidOperationException($"Role code '{roleCode}' not found.");
+        }
+    }
+
     private static PositionDto ToDto(Position position) => new()
     {
         PositionCode = position.PositionCode,
@@ -115,6 +140,7 @@ public class PositionService : IPositionService
         Description = position.Description,
         IsActive = position.IsActive,
         StandardSalary = position.Salary?.StandardSalary,
-        RankLevel = position.RankLevel
+        RankLevel = position.RankLevel,
+        RoleCode = position.RoleCode
     };
 }

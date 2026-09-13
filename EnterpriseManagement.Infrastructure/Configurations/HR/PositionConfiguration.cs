@@ -15,6 +15,7 @@ public class PositionConfiguration : IEntityTypeConfiguration<Position>
         builder.Property(x => x.PositionName).HasMaxLength(150).IsRequired();
         builder.Property(x => x.Description).HasMaxLength(500);
         builder.Property(x => x.RankLevel).IsRequired();
+        builder.Property(x => x.RoleCode).HasMaxLength(50);
 
         builder.HasIndex(x => x.PositionCode).IsUnique();
 

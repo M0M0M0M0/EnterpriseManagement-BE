@@ -72,16 +72,28 @@ public class UserService : IUserService
             throw new InvalidOperationException($"Username '{request.Username}' already exists.");
         }
 
-        var role = await _roleRepository.GetByCodeAsync(request.RoleCode)
-            ?? throw new InvalidOperationException($"Role code '{request.RoleCode}' not found.");
-
         long? employeeId = null;
+        string? roleCodeFromPosition = null;
         if (!string.IsNullOrWhiteSpace(request.EmployeeCode))
         {
             var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
                 ?? throw new InvalidOperationException($"Employee code '{request.EmployeeCode}' not found.");
             employeeId = employee.Id;
+            roleCodeFromPosition = employee.Position.RoleCode;
         }
+
+        // Role được chọn tay ưu tiên; nếu không chọn thì lấy role mặc định gán sẵn cho chức
+        // vụ của hồ sơ (Admin cấu hình ở màn hình Chức vụ), tránh phải nhớ chọn đúng role
+        // mỗi lần tạo tài khoản.
+        var roleCode = !string.IsNullOrWhiteSpace(request.RoleCode) ? request.RoleCode : roleCodeFromPosition;
+        if (string.IsNullOrWhiteSpace(roleCode))
+        {
+            throw new InvalidOperationException(
+                "Không xác định được vai trò cho tài khoản này — vui lòng chọn role thủ công, hoặc gán role cho chức vụ của nhân viên ở màn hình Chức vụ trước.");
+        }
+
+        var role = await _roleRepository.GetByCodeAsync(roleCode)
+            ?? throw new InvalidOperationException($"Role code '{roleCode}' not found.");
 
         var generatedPassword = RandomCodeGenerator.Generate(10);
 

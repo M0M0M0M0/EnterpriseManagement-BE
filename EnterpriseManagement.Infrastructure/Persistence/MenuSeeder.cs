@@ -29,26 +29,40 @@ public static class MenuSeeder
         new("MANAGER_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/manager/customers", 6, "page.manager.customers", "MANAGER"),
         new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 7, "page.manager.organization", "MANAGER"),
 
-        new("ADMIN_USERS", "User / Role / Permission", "ShieldRegular", "/admin/users", 1, "page.admin.users", "ADMIN"),
+        new("ADMIN_USERS", "Quản lý tài khoản", "ShieldRegular", "/admin/users", 1, "page.admin.users", "ADMIN"),
         new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
-        new("ADMIN_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/admin/organization", 3, "page.admin.organization", "ADMIN"),
-        new("ADMIN_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/admin/customers", 4, "page.admin.customers", "ADMIN"),
-        new("ADMIN_AUDIT", "Audit Log", "HistoryRegular", "/admin/audit", 5, "page.admin.audit", "ADMIN"),
-        new("ADMIN_SYSTEM", "System Administration", "SettingsRegular", "/admin/system", 6, "page.admin.system", "ADMIN"),
+        new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),
+        new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 4, "page.admin.positions", "ADMIN"),
+        new("ADMIN_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/admin/customers", 5, "page.admin.customers", "ADMIN"),
+        new("ADMIN_AUDIT", "Audit Log", "HistoryRegular", "/admin/audit", 6, "page.admin.audit", "ADMIN"),
+        new("ADMIN_SYSTEM", "System Administration", "SettingsRegular", "/admin/system", 7, "page.admin.system", "ADMIN"),
     };
 
+    // Idempotent: chỉ chèn những MenuCode chưa tồn tại, để khi thêm seed mới (vd MANAGER_AUDIT)
+    // các DB đã chạy từ trước (Menus không rỗng) vẫn nhận được menu mới ở lần khởi động kế tiếp,
+    // thay vì bị bỏ qua toàn bộ như trước (AnyAsync() chặn cả seed).
     public static async Task SeedAsync(ApplicationDbContext context)
     {
-        if (await context.Menus.AnyAsync())
+        var now = DateTime.UtcNow;
+
+        // Audit Log là trang dùng chung cho toàn hệ thống (chỉ 1 menu, route /admin/audit),
+        // không phải trang riêng theo role. Bản seed trước có lúc tạo MANAGER_AUDIT (route
+        // /manager/audit) như 1 menu riêng cho Manager — dọn lại 1 lần: gộp về đúng 1 menu,
+        // Manager muốn xem chỉ cần được cấp permission "page.admin.audit" như Admin.
+        await MergeManagerAuditMenuAsync(context, now);
+        await SplitAdminOrganizationMenuAsync(context);
+
+        var existingMenuCodes = (await context.Menus.Select(m => m.MenuCode).ToListAsync()).ToHashSet();
+        var missingSeeds = Seeds.Where(s => !existingMenuCodes.Contains(s.MenuCode)).ToList();
+        if (missingSeeds.Count == 0)
         {
             return;
         }
 
         var roles = await context.Roles.ToDictionaryAsync(r => r.RoleCode);
-        var now = DateTime.UtcNow;
+        var permissionsByCode = await context.Permissions.ToDictionaryAsync(p => p.PermissionCode);
 
-        var permissionsByCode = new Dictionary<string, Permission>();
-        foreach (var seed in Seeds)
+        foreach (var seed in missingSeeds)
         {
             if (permissionsByCode.ContainsKey(seed.PermissionCode)) continue;
 
@@ -65,23 +79,35 @@ public static class MenuSeeder
             context.Permissions.Add(permission);
         }
 
-        foreach (var group in Seeds.GroupBy(s => s.RoleCode))
+        // Lưu trước để permission mới (nếu có) có Id thật, dùng để so trùng RolePermission bên dưới.
+        await context.SaveChangesAsync();
+
+        var existingRolePermissionKeys = (await context.RolePermissions
+                .Select(rp => new { rp.RoleId, rp.PermissionId })
+                .ToListAsync())
+            .Select(x => (x.RoleId, x.PermissionId))
+            .ToHashSet();
+
+        foreach (var group in missingSeeds.GroupBy(s => s.RoleCode))
         {
             if (!roles.TryGetValue(group.Key, out var role)) continue;
 
             foreach (var seed in group)
             {
+                var permission = permissionsByCode[seed.PermissionCode];
+                if (existingRolePermissionKeys.Contains((role.Id, permission.Id))) continue;
+
                 context.RolePermissions.Add(new RolePermission
                 {
                     Role = role,
-                    Permission = permissionsByCode[seed.PermissionCode],
+                    Permission = permission,
                     GrantedAt = now,
                     CreatedAt = now
                 });
             }
         }
 
-        foreach (var seed in Seeds)
+        foreach (var seed in missingSeeds)
         {
             var menu = new Menu
             {
@@ -96,6 +122,88 @@ public static class MenuSeeder
             };
             menu.MenuPermissions.Add(new MenuPermission { Menu = menu, Permission = permissionsByCode[seed.PermissionCode] });
             context.Menus.Add(menu);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    // Xoá menu MANAGER_AUDIT (nếu có từ bước seed trước) và mọi permission "page.manager.audit"
+    // đi kèm, đồng thời chuyển quyền xem audit của Manager (nếu đã được cấp) sang dùng chung
+    // permission "page.admin.audit" của menu ADMIN_AUDIT — để chỉ còn đúng 1 Audit Log.
+    private static async Task MergeManagerAuditMenuAsync(ApplicationDbContext context, DateTime now)
+    {
+        var menu = await context.Menus
+            .Include(m => m.MenuPermissions)
+            .ThenInclude(mp => mp.Permission)
+            .FirstOrDefaultAsync(m => m.MenuCode == "MANAGER_AUDIT");
+        if (menu is null) return;
+
+        var linkedPermissions = menu.MenuPermissions.Select(mp => mp.Permission).ToList();
+        var managerRole = await context.Roles.FirstOrDefaultAsync(r => r.RoleCode == "MANAGER");
+        var sharedAuditPermission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == "page.admin.audit");
+
+        if (managerRole is not null && sharedAuditPermission is not null && linkedPermissions.Count > 0)
+        {
+            var alreadyHasShared = await context.RolePermissions
+                .AnyAsync(rp => rp.RoleId == managerRole.Id && rp.PermissionId == sharedAuditPermission.Id);
+            if (!alreadyHasShared)
+            {
+                context.RolePermissions.Add(new RolePermission
+                {
+                    Role = managerRole,
+                    Permission = sharedAuditPermission,
+                    GrantedAt = now,
+                    CreatedAt = now
+                });
+            }
+        }
+
+        context.MenuPermissions.RemoveRange(menu.MenuPermissions);
+        context.Menus.Remove(menu);
+        await context.SaveChangesAsync();
+
+        // permission "page.manager.audit" (tạo tạm ở bước trước) không còn menu nào dùng nữa -> xoá hẳn.
+        // Không đụng "page.admin.audit" vì đó là permission dùng chung, ADMIN_AUDIT vẫn cần.
+        foreach (var permission in linkedPermissions.Where(p => p.PermissionCode != "page.admin.audit"))
+        {
+            var stillReferenced = await context.MenuPermissions.AnyAsync(mp => mp.PermissionId == permission.Id);
+            if (stillReferenced) continue;
+
+            var grants = await context.RolePermissions.Where(rp => rp.PermissionId == permission.Id).ToListAsync();
+            context.RolePermissions.RemoveRange(grants);
+            context.Permissions.Remove(permission);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    // "Phòng ban & chức vụ" (ADMIN_ORGANIZATION) tách thành 2 menu riêng — ADMIN_DEPARTMENTS
+    // và ADMIN_POSITIONS — vì chức vụ giờ cần gán Role riêng (Position.RoleCode), không còn
+    // hợp lý gộp chung 1 trang/1 permission với phòng ban. Dọn 1 lần: xoá menu cũ + permission
+    // "page.admin.organization" đi kèm; 2 menu mới được seed lại bình thường qua vòng lặp
+    // missingSeeds bên trên vì MenuCode của chúng chưa tồn tại.
+    private static async Task SplitAdminOrganizationMenuAsync(ApplicationDbContext context)
+    {
+        var menu = await context.Menus
+            .Include(m => m.MenuPermissions)
+            .ThenInclude(mp => mp.Permission)
+            .FirstOrDefaultAsync(m => m.MenuCode == "ADMIN_ORGANIZATION");
+        if (menu is null) return;
+
+        var linkedPermissions = menu.MenuPermissions.Select(mp => mp.Permission).ToList();
+
+        context.MenuPermissions.RemoveRange(menu.MenuPermissions);
+        context.Menus.Remove(menu);
+        await context.SaveChangesAsync();
+
+        foreach (var permission in linkedPermissions)
+        {
+            var stillReferenced = await context.MenuPermissions.AnyAsync(mp => mp.PermissionId == permission.Id);
+            if (stillReferenced) continue;
+
+            var grants = await context.RolePermissions.Where(rp => rp.PermissionId == permission.Id).ToListAsync();
+            context.RolePermissions.RemoveRange(grants);
+            context.Permissions.Remove(permission);
         }
 
         await context.SaveChangesAsync();

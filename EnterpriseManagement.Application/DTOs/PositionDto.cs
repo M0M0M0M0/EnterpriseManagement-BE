@@ -8,4 +8,5 @@ public class PositionDto
     public bool IsActive { get; set; }
     public decimal? StandardSalary { get; set; }
     public int RankLevel { get; set; }
+    public string? RoleCode { get; set; }
 }

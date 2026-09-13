@@ -14,6 +14,11 @@ public class Position
     // Employee.ManagerId; RankLevel chỉ để so sánh cấp bậc và gợi ý mặc định.
     public int RankLevel { get; set; }
 
+    // Role mặc định cho tài khoản của người giữ chức vụ này (vd Trưởng phòng/Quản lý -> MANAGER,
+    // Nhân viên -> EMPLOYEE). Khi Admin tạo tài khoản cho 1 hồ sơ nhân viên, role được tự điền
+    // từ đây (vẫn có thể đổi tay), thay vì phải nhớ chọn đúng role mỗi lần.
+    public string? RoleCode { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
