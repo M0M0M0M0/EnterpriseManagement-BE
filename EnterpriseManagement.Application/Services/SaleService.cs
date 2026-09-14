@@ -259,13 +259,17 @@ public class SaleService : ISaleService
         SaleCode = sale.SaleCode,
         CustomerCode = sale.Customer.CustomerCode,
         CustomerName = sale.Customer.CustomerName,
+        CustomerPhone = sale.Customer.Phone,
         EmployeeCode = sale.Employee.EmployeeCode,
         EmployeeName = $"{sale.Employee.FirstName} {sale.Employee.LastName}",
+        DepartmentCode = sale.Employee.Department.DepartmentCode,
+        DepartmentName = sale.Employee.Department.DepartmentName,
         Amount = sale.Amount,
         OrderDate = sale.OrderDate,
         Status = sale.Status.ToString(),
         Note = sale.Note,
         RejectionReason = sale.RejectionReason,
+        ApproverEmployeeCode = sale.Approver?.EmployeeCode,
         ApproverName = sale.Approver is null ? null : $"{sale.Approver.FirstName} {sale.Approver.LastName}",
         ApprovedAt = sale.ApprovedAt
     };
