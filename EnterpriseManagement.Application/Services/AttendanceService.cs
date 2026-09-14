@@ -45,11 +45,22 @@ public class AttendanceService : IAttendanceService
             };
             await _attendanceRepository.AddAsync(record);
         }
+        else if (record.CheckInTime is null)
+        {
+            // Bản ghi hôm nay đã tồn tại nhưng chưa có check-in thật (vd ngày đang bị đánh dấu
+            // Vắng/Nghỉ phép) — coi lần bấm này là check-in thật, không phải check-out.
+            record.CheckInTime = now;
+            record.CheckOutTime = null;
+            record.WorkingHours = null;
+            record.Status = AttendanceStatus.Present;
+            record.Note = null;
+            record.UpdatedAt = now;
+        }
         else
         {
             // Các lần punch sau trong cùng ngày = check-out, đè lên checkout trước đó nếu có.
             record.CheckOutTime = now;
-            record.WorkingHours = (decimal)(now - record.CheckInTime!.Value).TotalHours;
+            record.WorkingHours = (decimal)(now - record.CheckInTime.Value).TotalHours;
             record.UpdatedAt = now;
         }
 
