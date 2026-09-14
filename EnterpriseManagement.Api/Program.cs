@@ -117,6 +117,11 @@ using (var scope = app.Services.CreateScope())
     await ActionPermissionSeeder.SeedAsync(context);
     await LeaveTypeSeeder.SeedAsync(context);
     await PositionSeeder.SeedAsync(context);
+
+    if (app.Environment.IsDevelopment())
+    {
+        await DemoDataSeeder.SeedAsync(context, hasher);
+    }
 }
 
 app.UseCors(FrontendCorsPolicy);

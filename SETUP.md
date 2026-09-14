@@ -94,6 +94,16 @@ dotnet run
 Không cần chạy thêm lệnh seed riêng nào — seed tự chạy mỗi lần start API,
 và chỉ tạo dữ liệu khi bảng đang rỗng nên chạy lại nhiều lần cũng an toàn.
 
+- **Cũng lần chạy đầu tiên, chỉ khi môi trường là `Development`** (khi bảng
+  `Departments` đang rỗng), `DemoDataSeeder` tự tạo 1 bộ dữ liệu công ty mẫu
+  đầy đủ để có sẵn data dùng thử toàn bộ tính năng: 5 phòng ban, 20 nhân
+  viên (phân cấp CEO → Trưởng phòng → Trưởng nhóm → Nhân viên), 20 tài
+  khoản `e1`..`e20` — **mật khẩu chung: `Demo@1234`** (`e1` = CEO, xem trong
+  `DemoDataSeeder.cs` để biết `e{n}` nào ứng với ai) — cùng chấm công tuần
+  gần nhất, số dư/đơn nghỉ phép, KPI Plan, khách hàng, sale và lịch sử hoa
+  hồng đã seed sẵn, liên kết nhất quán với nhau. Chỉ chạy 1 lần; muốn seed
+  lại từ đầu thì xoá sạch data (xem mục 5.5) rồi chạy lại.
+
 ## 5.5. Khi pull code mới mà seeder thay đổi (permission, position, leave type...)
 
 Seeder (`MenuSeeder`, `ActionPermissionSeeder`, `LeaveTypeSeeder`, `PositionSeeder`...)
