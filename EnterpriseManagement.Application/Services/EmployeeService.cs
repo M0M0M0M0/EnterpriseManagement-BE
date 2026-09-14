@@ -109,7 +109,14 @@ public class EmployeeService : IEmployeeService
         var result = new List<Employee>();
         CollectSubordinates(manager.Id, childrenByManagerId, result);
 
-        return result.Select(ToDto);
+        // RankLevel số càng nhỏ càng cao cấp (xem Position.cs) -> sắp tăng dần để cấp cao (Trưởng
+        // phòng...) hiện đầu danh sách, cấp thấp (Nhân viên) hiện cuối, đúng thứ tự trên xuống
+        // dưới trong sơ đồ tổ chức. Cùng cấp thì sắp theo tên cho ổn định, dễ dò.
+        return result
+            .OrderBy(e => e.Position.RankLevel)
+            .ThenBy(e => e.FirstName)
+            .ThenBy(e => e.LastName)
+            .Select(ToDto);
     }
 
     private static void CollectSubordinates(long managerId, Dictionary<long, List<Employee>> childrenByManagerId, List<Employee> result)
