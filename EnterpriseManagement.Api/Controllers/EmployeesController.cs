@@ -58,6 +58,21 @@ public class EmployeesController : ControllerBase
         }
     }
 
+    [HttpGet("team/{managerEmployeeCode}/all")]
+    [RequirePermission("employee.view.team")]
+    public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetTeamRecursive(string managerEmployeeCode)
+    {
+        try
+        {
+            var team = await _employeeService.GetTeamRecursiveAsync(managerEmployeeCode);
+            return Ok(team);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("org-tree")]
     [RequirePermission("employee.view.team")]
     public async Task<ActionResult<IEnumerable<OrgTreeNodeDto>>> GetOrgTree()

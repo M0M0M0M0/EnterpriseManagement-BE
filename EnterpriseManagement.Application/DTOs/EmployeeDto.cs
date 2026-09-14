@@ -16,6 +16,7 @@ public class EmployeeDto
     public string PositionCode { get; set; } = string.Empty;
     public string PositionName { get; set; } = string.Empty;
     public string? ManagerCode { get; set; }
+    public string? ManagerName { get; set; }
     public string EmploymentStatus { get; set; } = string.Empty;
     public DateOnly HireDate { get; set; }
 }

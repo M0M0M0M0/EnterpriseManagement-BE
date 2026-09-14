@@ -92,6 +92,37 @@ public class EmployeeService : IEmployeeService
         return team.Select(ToDto);
     }
 
+    // Khác GetTeamAsync (chỉ cấp dưới trực tiếp) — trả về TOÀN BỘ cấp dưới nhiều tầng dưới
+    // quyền quản lý của người gọi, dạng danh sách phẳng (không phải cây), để trang "Nhân viên
+    // của tôi" hiện được cả người do nhân viên dưới mình quản lý, không chỉ báo cáo trực tiếp.
+    public async Task<IEnumerable<EmployeeDto>> GetTeamRecursiveAsync(string managerEmployeeCode)
+    {
+        var manager = await _employeeRepository.GetByEmployeeCodeAsync(managerEmployeeCode)
+            ?? throw new InvalidOperationException($"Employee code '{managerEmployeeCode}' not found.");
+
+        var allEmployees = (await _employeeRepository.GetAllAsync()).ToList();
+        var childrenByManagerId = allEmployees
+            .Where(e => e.ManagerId.HasValue)
+            .GroupBy(e => e.ManagerId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = new List<Employee>();
+        CollectSubordinates(manager.Id, childrenByManagerId, result);
+
+        return result.Select(ToDto);
+    }
+
+    private static void CollectSubordinates(long managerId, Dictionary<long, List<Employee>> childrenByManagerId, List<Employee> result)
+    {
+        if (!childrenByManagerId.TryGetValue(managerId, out var direct)) return;
+
+        foreach (var child in direct)
+        {
+            result.Add(child);
+            CollectSubordinates(child.Id, childrenByManagerId, result);
+        }
+    }
+
     // Root là danh sách cấp dưới TRỰC TIẾP của người gọi (không bọc thêm 1 node "chính mình"),
     // mỗi node đệ quy xuống hết các cấp dưới của nó — khác GetTeamAsync (chỉ 1 cấp). isAdmin=true
     // thì lấy toàn bộ nhân viên có ManagerId null (CEO) làm root để Admin xem được cả công ty.
@@ -241,6 +272,7 @@ public class EmployeeService : IEmployeeService
         PositionCode = employee.Position.PositionCode,
         PositionName = employee.Position.PositionName,
         ManagerCode = employee.Manager?.EmployeeCode,
+        ManagerName = employee.Manager is null ? null : $"{employee.Manager.FirstName} {employee.Manager.LastName}",
         EmploymentStatus = employee.EmploymentStatus.ToString(),
         HireDate = employee.HireDate
     };
