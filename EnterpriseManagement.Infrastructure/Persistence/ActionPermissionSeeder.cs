@@ -17,7 +17,10 @@ public static class ActionPermissionSeeder
     {
         new("attendance.punch", "Chấm công", "attendance", "Check-in / check-out hằng ngày.", new[] { "EMPLOYEE", "MANAGER" }),
         new("attendance.view.team", "Xem chấm công phòng ban", "attendance", "Xem bảng công của cả phòng ban.", new[] { "MANAGER" }),
-        new("attendance.adjustment.self", "Gửi yêu cầu điều chỉnh công", "attendance", "Gửi và xem yêu cầu điều chỉnh công của chính mình.", new[] { "EMPLOYEE" }),
+        // Manager cũng tự chấm công như Employee (xem attendance.punch) nên cũng cần tự gửi/xem
+        // yêu cầu điều chỉnh công của chính mình khi quên chấm công — thiếu MANAGER ở đây khiến
+        // trang Chấm công của Manager gọi GET /attendance/adjustments/mine bị 403 ngay khi mở trang.
+        new("attendance.adjustment.self", "Gửi yêu cầu điều chỉnh công", "attendance", "Gửi và xem yêu cầu điều chỉnh công của chính mình.", new[] { "EMPLOYEE", "MANAGER" }),
         new("attendance.adjustment.view", "Xem yêu cầu điều chỉnh công chờ duyệt", "attendance", "Xem danh sách yêu cầu điều chỉnh công đang chờ duyệt.", new[] { "MANAGER" }),
         new("attendance.adjustment.approve", "Duyệt/từ chối điều chỉnh công", "attendance", "Duyệt hoặc từ chối yêu cầu điều chỉnh công.", new[] { "MANAGER" }),
 
