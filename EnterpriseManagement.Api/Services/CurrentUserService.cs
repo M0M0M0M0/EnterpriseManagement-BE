@@ -15,9 +15,16 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
+    public long? UserId =>
+        long.TryParse(_httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+            ? id
+            : null;
+
     public string? EmployeeCode => _httpContextAccessor.HttpContext?.User.FindFirstValue("employeeCode");
 
     public string? Username => _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.Name);
+
+    public string? IpAddress => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
     public bool IsInRole(string role) =>
         _httpContextAccessor.HttpContext?.User.IsInRole(role) ?? false;

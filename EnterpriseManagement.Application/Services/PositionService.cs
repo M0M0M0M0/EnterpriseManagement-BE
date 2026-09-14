@@ -10,16 +10,25 @@ public class PositionService : IPositionService
     private readonly IPositionRepository _positionRepository;
     private readonly IPositionSalaryRepository _positionSalaryRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public PositionService(
         IPositionRepository positionRepository,
         IPositionSalaryRepository positionSalaryRepository,
-        IRoleRepository roleRepository)
+        IRoleRepository roleRepository,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _positionRepository = positionRepository;
         _positionSalaryRepository = positionSalaryRepository;
         _roleRepository = roleRepository;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Position", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<PositionDto>> GetAllAsync()
     {
@@ -56,6 +65,7 @@ public class PositionService : IPositionService
 
         await _positionRepository.AddAsync(position);
         await _positionRepository.SaveChangesAsync();
+        await LogAsync("Create", position.Id);
 
         return ToDto(position);
     }
@@ -102,6 +112,7 @@ public class PositionService : IPositionService
         position.UpdatedAt = VietnamClock.Now;
 
         await _positionRepository.SaveChangesAsync();
+        await LogAsync("Update", position.Id);
 
         var updated = await _positionRepository.GetByCodeAsync(positionCode);
         return ToDto(updated!);
@@ -116,6 +127,7 @@ public class PositionService : IPositionService
         position.UpdatedAt = VietnamClock.Now;
 
         await _positionRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", position.Id);
 
         return ToDto(position);
     }

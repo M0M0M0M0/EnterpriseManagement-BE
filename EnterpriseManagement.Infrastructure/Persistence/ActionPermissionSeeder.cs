@@ -57,6 +57,8 @@ public static class ActionPermissionSeeder
         new("role.manage", "Quản lý vai trò", "system", "Tạo, sửa vai trò và gán permission.", new[] { "ADMIN" }),
         new("permission.manage", "Quản lý permission", "system", "Tạo, sửa permission trong hệ thống.", new[] { "ADMIN" }),
         new("menu.manage", "Quản lý menu", "system", "Tạo, sửa, ẩn/hiện menu sidebar.", new[] { "ADMIN" }),
+
+        new("audit.view", "Xem Audit Log", "system", "Xem lịch sử thao tác của toàn hệ thống.", new[] { "ADMIN", "MANAGER" }),
     };
 
     // Idempotent: chỉ tạo permission chưa tồn tại, và luôn đồng bộ RolePermission theo đúng

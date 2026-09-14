@@ -14,6 +14,8 @@ public class LeaveRequestService : ILeaveRequestService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
     private readonly IAttendanceService _attendanceService;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public LeaveRequestService(
         ILeaveRequestRepository leaveRequestRepository,
@@ -21,7 +23,9 @@ public class LeaveRequestService : ILeaveRequestService
         ILeaveBalanceService leaveBalanceService,
         IEmployeeRepository employeeRepository,
         IApprovalDelegationResolver approvalDelegationResolver,
-        IAttendanceService attendanceService)
+        IAttendanceService attendanceService,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _leaveRequestRepository = leaveRequestRepository;
         _leaveTypeRepository = leaveTypeRepository;
@@ -29,7 +33,12 @@ public class LeaveRequestService : ILeaveRequestService
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
         _attendanceService = attendanceService;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "LeaveRequest", entityId, _currentUserService.IpAddress);
 
     public async Task<LeaveRequestDto> SubmitAsync(SubmitLeaveRequest request, string employeeCode)
     {
@@ -282,6 +291,7 @@ public class LeaveRequestService : ILeaveRequestService
                 leaveRequest.Session.Value);
         }
 
+        await LogAsync("Approve", leaveRequest.Id);
         return ToDto(leaveRequest);
     }
 
@@ -315,6 +325,7 @@ public class LeaveRequestService : ILeaveRequestService
         leaveRequest.UpdatedAt = VietnamClock.Now;
 
         await _leaveRequestRepository.SaveChangesAsync();
+        await LogAsync("Reject", leaveRequest.Id);
 
         return ToDto(leaveRequest);
     }

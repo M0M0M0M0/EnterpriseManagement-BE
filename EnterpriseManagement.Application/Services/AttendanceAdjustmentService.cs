@@ -12,18 +12,27 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public AttendanceAdjustmentService(
         IAttendanceAdjustmentRepository adjustmentRepository,
         IAttendanceRepository attendanceRepository,
         IEmployeeRepository employeeRepository,
-        IApprovalDelegationResolver approvalDelegationResolver)
+        IApprovalDelegationResolver approvalDelegationResolver,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _adjustmentRepository = adjustmentRepository;
         _attendanceRepository = attendanceRepository;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "AttendanceAdjustment", entityId, _currentUserService.IpAddress);
 
     public async Task<AttendanceAdjustmentDto> SubmitAsync(SubmitAdjustmentRequest request, string employeeCode)
     {
@@ -156,6 +165,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         adjustment.Attendance.UpdatedAt = VietnamClock.Now;
 
         await _adjustmentRepository.SaveChangesAsync();
+        await LogAsync("Approve", adjustment.Id);
 
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);
@@ -188,6 +198,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         adjustment.ApprovedAt = VietnamClock.Now;
 
         await _adjustmentRepository.SaveChangesAsync();
+        await LogAsync("Reject", adjustment.Id);
 
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);

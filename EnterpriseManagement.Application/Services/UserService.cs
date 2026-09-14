@@ -12,20 +12,29 @@ public class UserService : IUserService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public UserService(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IEmployeeRepository employeeRepository,
         IPasswordHasher passwordHasher,
-        IJwtTokenGenerator jwtTokenGenerator)
+        IJwtTokenGenerator jwtTokenGenerator,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _employeeRepository = employeeRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "User", entityId, _currentUserService.IpAddress);
 
     public async Task<LoginResult> LoginAsync(LoginRequest request)
     {
@@ -110,6 +119,7 @@ public class UserService : IUserService
 
         await _userRepository.AddAsync(user);
         await _userRepository.SaveChangesAsync();
+        await LogAsync("Create", user.Id);
 
         var created = await _userRepository.GetByUsernameAsync(request.Username);
         return new CreateUserResult
@@ -134,6 +144,7 @@ public class UserService : IUserService
         user.PasswordHash = _passwordHasher.Hash(generatedPassword);
         user.UpdatedAt = VietnamClock.Now;
         await _userRepository.SaveChangesAsync();
+        await LogAsync("ResetPassword", user.Id);
 
         return new CreateUserResult
         {
@@ -175,6 +186,7 @@ public class UserService : IUserService
         user.IsActive = isActive;
         user.UpdatedAt = VietnamClock.Now;
         await _userRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Unlock" : "Lock", user.Id);
 
         return ToDto(user);
     }
@@ -184,6 +196,7 @@ public class UserService : IUserService
         Username = user.Username,
         Email = user.Email,
         EmployeeCode = user.Employee?.EmployeeCode,
+        EmployeeName = user.Employee is null ? null : $"{user.Employee.FirstName} {user.Employee.LastName}",
         Roles = user.UserRoles.Select(ur => ur.Role.RoleCode).ToList(),
         IsActive = user.IsActive,
         LastLoginAt = user.LastLoginAt

@@ -13,20 +13,29 @@ public class EmployeeService : IEmployeeService
     private readonly IPositionRepository _positionRepository;
     private readonly ISaleRepository _saleRepository;
     private readonly IAttendanceRepository _attendanceRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public EmployeeService(
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
         IPositionRepository positionRepository,
         ISaleRepository saleRepository,
-        IAttendanceRepository attendanceRepository)
+        IAttendanceRepository attendanceRepository,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
         _saleRepository = saleRepository;
         _attendanceRepository = attendanceRepository;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Employee", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync()
     {
@@ -68,6 +77,7 @@ public class EmployeeService : IEmployeeService
 
         await _employeeRepository.AddAsync(employee);
         await _employeeRepository.SaveChangesAsync();
+        await LogAsync("Create", employee.Id);
 
         var created = await _employeeRepository.GetByIdAsync(employee.Id);
         return ToDto(created!);
@@ -172,6 +182,7 @@ public class EmployeeService : IEmployeeService
         employee.UpdatedAt = VietnamClock.Now;
 
         await _employeeRepository.SaveChangesAsync();
+        await LogAsync("Update", employee.Id);
 
         var updated = await _employeeRepository.GetByIdAsync(employee.Id);
         return ToDto(updated!);
@@ -193,6 +204,7 @@ public class EmployeeService : IEmployeeService
         employee.UpdatedAt = VietnamClock.Now;
 
         await _employeeRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", employee.Id);
 
         var updated = await _employeeRepository.GetByIdAsync(employee.Id);
         return ToDto(updated!);

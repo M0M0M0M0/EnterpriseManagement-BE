@@ -8,11 +8,19 @@ namespace EnterpriseManagement.Application.Services;
 public class DepartmentService : IDepartmentService
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public DepartmentService(IDepartmentRepository departmentRepository)
+    public DepartmentService(
+        IDepartmentRepository departmentRepository, IAuditLogService auditLogService, ICurrentUserService currentUserService)
     {
         _departmentRepository = departmentRepository;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Department", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<DepartmentDto>> GetAllAsync()
     {
@@ -46,6 +54,7 @@ public class DepartmentService : IDepartmentService
 
         await _departmentRepository.AddAsync(department);
         await _departmentRepository.SaveChangesAsync();
+        await LogAsync("Create", department.Id);
 
         var created = await _departmentRepository.GetByCodeAsync(department.DepartmentCode);
         return ToDto(created!);
@@ -62,6 +71,7 @@ public class DepartmentService : IDepartmentService
         department.UpdatedAt = VietnamClock.Now;
 
         await _departmentRepository.SaveChangesAsync();
+        await LogAsync("Update", department.Id);
 
         var updated = await _departmentRepository.GetByCodeAsync(departmentCode);
         return ToDto(updated!);
@@ -76,6 +86,7 @@ public class DepartmentService : IDepartmentService
         department.UpdatedAt = VietnamClock.Now;
 
         await _departmentRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", department.Id);
 
         return ToDto(department);
     }

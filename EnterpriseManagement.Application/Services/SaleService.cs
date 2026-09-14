@@ -13,20 +13,29 @@ public class SaleService : ISaleService
     private readonly ICustomerService _customerService;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public SaleService(
         ISaleRepository saleRepository,
         ICustomerRepository customerRepository,
         ICustomerService customerService,
         IEmployeeRepository employeeRepository,
-        IApprovalDelegationResolver approvalDelegationResolver)
+        IApprovalDelegationResolver approvalDelegationResolver,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _saleRepository = saleRepository;
         _customerRepository = customerRepository;
         _customerService = customerService;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Sale", entityId, _currentUserService.IpAddress);
 
     public async Task<SaleDto> SubmitAsync(SubmitSaleRequest request, string employeeCode)
     {
@@ -159,6 +168,7 @@ public class SaleService : ISaleService
     public async Task<SaleDto> ApproveAsync(long saleId, string approverEmployeeCode, bool isAdmin)
     {
         var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Confirmed, "approved", null);
+        await LogAsync("Approve", sale.Id);
         return ToDto(sale);
     }
 
@@ -170,6 +180,7 @@ public class SaleService : ISaleService
         }
 
         var sale = await ChangeStatusAsync(saleId, approverEmployeeCode, isAdmin, SaleStatus.Cancelled, "rejected", rejectionReason);
+        await LogAsync("Reject", sale.Id);
         return ToDto(sale);
     }
 

@@ -12,18 +12,27 @@ public class SalesCommissionService : ISalesCommissionService
     private readonly ISaleRepository _saleRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public SalesCommissionService(
         ISalesCommissionRepository commissionRepository,
         ISaleRepository saleRepository,
         IEmployeeRepository employeeRepository,
-        IApprovalDelegationResolver approvalDelegationResolver)
+        IApprovalDelegationResolver approvalDelegationResolver,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _commissionRepository = commissionRepository;
         _saleRepository = saleRepository;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Commission", entityId, _currentUserService.IpAddress);
 
     public async Task<CommissionDto> CalculateAsync(CalculateCommissionRequest request, string requesterEmployeeCode)
     {
@@ -145,6 +154,7 @@ public class SalesCommissionService : ISalesCommissionService
         commission.UpdatedAt = VietnamClock.Now;
 
         await _commissionRepository.SaveChangesAsync();
+        await LogAsync("Approve", commission.Id);
 
         return ToDto(commission);
     }

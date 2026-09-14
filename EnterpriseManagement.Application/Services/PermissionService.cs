@@ -8,11 +8,19 @@ namespace EnterpriseManagement.Application.Services;
 public class PermissionService : IPermissionService
 {
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public PermissionService(IPermissionRepository permissionRepository)
+    public PermissionService(
+        IPermissionRepository permissionRepository, IAuditLogService auditLogService, ICurrentUserService currentUserService)
     {
         _permissionRepository = permissionRepository;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Permission", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<PermissionDto>> GetAllAsync()
     {
@@ -40,6 +48,7 @@ public class PermissionService : IPermissionService
 
         await _permissionRepository.AddAsync(permission);
         await _permissionRepository.SaveChangesAsync();
+        await LogAsync("Create", permission.Id);
 
         var created = await _permissionRepository.GetByCodeAsync(permission.PermissionCode);
         return ToDto(created!);
@@ -55,6 +64,7 @@ public class PermissionService : IPermissionService
         permission.Description = request.Description;
 
         await _permissionRepository.SaveChangesAsync();
+        await LogAsync("Update", permission.Id);
 
         return ToDto(permission);
     }
@@ -67,6 +77,7 @@ public class PermissionService : IPermissionService
         permission.IsActive = isActive;
 
         await _permissionRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", permission.Id);
 
         return ToDto(permission);
     }

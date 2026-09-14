@@ -10,16 +10,25 @@ public class KpiPlanService : IKpiPlanService
     private readonly IKpiPlanRepository _kpiPlanRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
     public KpiPlanService(
         IKpiPlanRepository kpiPlanRepository,
         IEmployeeRepository employeeRepository,
-        IApprovalDelegationResolver approvalDelegationResolver)
+        IApprovalDelegationResolver approvalDelegationResolver,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _kpiPlanRepository = kpiPlanRepository;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "KpiPlan", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<KpiPlanDto>> GetAllAsync()
     {
@@ -50,6 +59,7 @@ public class KpiPlanService : IKpiPlanService
 
         await _kpiPlanRepository.AddAsync(plan);
         await _kpiPlanRepository.SaveChangesAsync();
+        await LogAsync("Create", plan.Id);
 
         return ToDto(plan);
     }
@@ -75,6 +85,7 @@ public class KpiPlanService : IKpiPlanService
         }
 
         await _kpiPlanRepository.SaveChangesAsync();
+        await LogAsync("Update", plan.Id);
 
         return ToDto(plan);
     }
@@ -88,6 +99,7 @@ public class KpiPlanService : IKpiPlanService
         plan.UpdatedAt = VietnamClock.Now;
 
         await _kpiPlanRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", plan.Id);
 
         return ToDto(plan);
     }
@@ -141,6 +153,7 @@ public class KpiPlanService : IKpiPlanService
         }
 
         await _employeeRepository.SaveChangesAsync();
+        await LogAsync("AssignEmployees", id);
 
         var updated = await _kpiPlanRepository.GetByIdAsync(id);
         return ToDto(updated!);

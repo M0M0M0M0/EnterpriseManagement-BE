@@ -9,12 +9,23 @@ public class MenuService : IMenuService
 {
     private readonly IMenuRepository _menuRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public MenuService(IMenuRepository menuRepository, IPermissionRepository permissionRepository)
+    public MenuService(
+        IMenuRepository menuRepository,
+        IPermissionRepository permissionRepository,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _menuRepository = menuRepository;
         _permissionRepository = permissionRepository;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Menu", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<MenuDto>> GetAllAsync()
     {
@@ -61,6 +72,7 @@ public class MenuService : IMenuService
 
         await _menuRepository.AddAsync(menu);
         await _menuRepository.SaveChangesAsync();
+        await LogAsync("Create", menu.Id);
 
         var created = await _menuRepository.GetByCodeAsync(menu.MenuCode);
         return ToDto(created!);
@@ -85,6 +97,7 @@ public class MenuService : IMenuService
         }
 
         await _menuRepository.SaveChangesAsync();
+        await LogAsync("Update", menu.Id);
 
         var updated = await _menuRepository.GetByCodeAsync(menuCode);
         return ToDto(updated!);
@@ -99,6 +112,7 @@ public class MenuService : IMenuService
         menu.UpdatedAt = VietnamClock.Now;
 
         await _menuRepository.SaveChangesAsync();
+        await LogAsync(isVisible ? "Show" : "Hide", menu.Id);
 
         return ToDto(menu);
     }
@@ -112,6 +126,7 @@ public class MenuService : IMenuService
         menu.UpdatedAt = VietnamClock.Now;
 
         await _menuRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", menu.Id);
 
         return ToDto(menu);
     }

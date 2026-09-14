@@ -9,12 +9,23 @@ public class RoleService : IRoleService
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IAuditLogService _auditLogService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public RoleService(IRoleRepository roleRepository, IPermissionRepository permissionRepository)
+    public RoleService(
+        IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _auditLogService = auditLogService;
+        _currentUserService = currentUserService;
     }
+
+    private Task LogAsync(string action, long? entityId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "Role", entityId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<RoleDto>> GetAllAsync()
     {
@@ -46,6 +57,7 @@ public class RoleService : IRoleService
 
         await _roleRepository.AddAsync(role);
         await _roleRepository.SaveChangesAsync();
+        await LogAsync("Create", role.Id);
 
         var created = await _roleRepository.GetByCodeAsync(role.RoleCode);
         return ToDto(created!);
@@ -74,6 +86,7 @@ public class RoleService : IRoleService
         }
 
         await _roleRepository.SaveChangesAsync();
+        await LogAsync("Update", role.Id);
 
         var updated = await _roleRepository.GetByCodeAsync(roleCode);
         return ToDto(updated!);
@@ -88,6 +101,7 @@ public class RoleService : IRoleService
         role.UpdatedAt = VietnamClock.Now;
 
         await _roleRepository.SaveChangesAsync();
+        await LogAsync(isActive ? "Activate" : "Deactivate", role.Id);
 
         return ToDto(role);
     }
