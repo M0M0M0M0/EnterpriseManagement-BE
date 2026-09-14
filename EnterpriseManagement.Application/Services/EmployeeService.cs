@@ -11,15 +11,21 @@ public class EmployeeService : IEmployeeService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IPositionRepository _positionRepository;
+    private readonly ISaleRepository _saleRepository;
+    private readonly IAttendanceRepository _attendanceRepository;
 
     public EmployeeService(
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
-        IPositionRepository positionRepository)
+        IPositionRepository positionRepository,
+        ISaleRepository saleRepository,
+        IAttendanceRepository attendanceRepository)
     {
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
+        _saleRepository = saleRepository;
+        _attendanceRepository = attendanceRepository;
     }
 
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync()
@@ -74,6 +80,71 @@ public class EmployeeService : IEmployeeService
 
         var team = await _employeeRepository.GetByManagerIdAsync(manager.Id);
         return team.Select(ToDto);
+    }
+
+    // Root là danh sách cấp dưới TRỰC TIẾP của người gọi (không bọc thêm 1 node "chính mình"),
+    // mỗi node đệ quy xuống hết các cấp dưới của nó — khác GetTeamAsync (chỉ 1 cấp). isAdmin=true
+    // thì lấy toàn bộ nhân viên có ManagerId null (CEO) làm root để Admin xem được cả công ty.
+    public async Task<IEnumerable<OrgTreeNodeDto>> GetOrgTreeAsync(string requesterEmployeeCode, bool isAdmin)
+    {
+        var allEmployees = (await _employeeRepository.GetAllAsync()).ToList();
+        var childrenByManagerId = allEmployees
+            .Where(e => e.ManagerId.HasValue)
+            .GroupBy(e => e.ManagerId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        List<Employee> roots;
+        if (isAdmin)
+        {
+            roots = allEmployees.Where(e => e.ManagerId is null).ToList();
+        }
+        else
+        {
+            var requester = allEmployees.FirstOrDefault(e => e.EmployeeCode == requesterEmployeeCode)
+                ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+            roots = childrenByManagerId.TryGetValue(requester.Id, out var direct) ? direct : new List<Employee>();
+        }
+
+        var today = VietnamClock.Today;
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var nodes = new List<OrgTreeNodeDto>();
+        foreach (var root in roots)
+        {
+            nodes.Add(await BuildOrgTreeNodeAsync(root, childrenByManagerId, today, monthStart));
+        }
+
+        return nodes;
+    }
+
+    private async Task<OrgTreeNodeDto> BuildOrgTreeNodeAsync(
+        Employee employee, Dictionary<long, List<Employee>> childrenByManagerId, DateOnly today, DateOnly monthStart)
+    {
+        var sales = await _saleRepository.GetByEmployeeIdAsync(employee.Id);
+        var monthlyRevenue = sales
+            .Where(s => s.Status == SaleStatus.Confirmed && DateOnly.FromDateTime(s.OrderDate) >= monthStart)
+            .Sum(s => s.Amount);
+
+        var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
+
+        var children = childrenByManagerId.TryGetValue(employee.Id, out var direct) ? direct : new List<Employee>();
+        var subordinates = new List<OrgTreeNodeDto>();
+        foreach (var child in children)
+        {
+            subordinates.Add(await BuildOrgTreeNodeAsync(child, childrenByManagerId, today, monthStart));
+        }
+
+        return new OrgTreeNodeDto
+        {
+            EmployeeCode = employee.EmployeeCode,
+            FullName = $"{employee.FirstName} {employee.LastName}",
+            PositionName = employee.Position.PositionName,
+            DepartmentName = employee.Department.DepartmentName,
+            EmploymentStatus = employee.EmploymentStatus.ToString(),
+            TodayAttendanceStatus = todayRecord?.Status.ToString() ?? "ChuaChamCong",
+            MonthlyRevenue = monthlyRevenue,
+            SubordinateCount = children.Count,
+            Subordinates = subordinates
+        };
     }
 
     public async Task<EmployeeDto> UpdateAsync(string employeeCode, UpdateEmployeeRequest request)

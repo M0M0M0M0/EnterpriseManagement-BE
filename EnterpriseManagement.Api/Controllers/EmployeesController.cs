@@ -12,10 +12,12 @@ namespace EnterpriseManagement.Api.Controllers;
 public class EmployeesController : ControllerBase
 {
     private readonly IEmployeeService _employeeService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public EmployeesController(IEmployeeService employeeService)
+    public EmployeesController(IEmployeeService employeeService, ICurrentUserService currentUserService)
     {
         _employeeService = employeeService;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet]
@@ -49,6 +51,21 @@ public class EmployeesController : ControllerBase
         {
             var team = await _employeeService.GetTeamAsync(managerEmployeeCode);
             return Ok(team);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("org-tree")]
+    [RequirePermission("employee.view.team")]
+    public async Task<ActionResult<IEnumerable<OrgTreeNodeDto>>> GetOrgTree()
+    {
+        try
+        {
+            var tree = await _employeeService.GetOrgTreeAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
+            return Ok(tree);
         }
         catch (InvalidOperationException ex)
         {

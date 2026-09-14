@@ -31,6 +31,7 @@ public static class MenuSeeder
         new("MANAGER_CUSTOMERS", "Quản lý khách hàng", "PeopleTeamRegular", "/manager/customers", 6, "page.manager.customers", "MANAGER"),
         new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 7, "page.manager.organization", "MANAGER"),
         new("MANAGER_KPI_COMMISSION", "KPI & Hoa hồng", "MoneyRegular", "/manager/kpi-commission", 8, "page.manager.kpicommission", "MANAGER"),
+        new("MANAGER_ORG_TREE", "Cây tổ chức", "PeopleTeamRegular", "/manager/org-tree", 9, "page.manager.orgtree", "MANAGER"),
 
         new("ADMIN_USERS", "Tài khoản", "ShieldRegular", "/admin/users", 1, "page.admin.users", "ADMIN"),
         new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
