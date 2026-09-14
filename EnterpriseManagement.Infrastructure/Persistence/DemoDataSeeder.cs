@@ -102,7 +102,20 @@ public static class DemoDataSeeder
         var changed = false;
         foreach (var (code, name, rank, roleCode) in required)
         {
-            if (positions.ContainsKey(code)) continue;
+            if (positions.TryGetValue(code, out var existing))
+            {
+                // PositionSeeder có thể đã tạo sẵn 4 mã này (DB trống hoàn toàn, chạy trước
+                // DemoDataSeeder) nhưng KHÔNG set RoleCode — chỉ bỏ qua theo mã thôi thì user sẽ
+                // bị gán role sai (mặc định "EMPLOYEE") ở SeedUsersAsync. Backfill RoleCode nếu
+                // đang trống, không đụng nếu Admin đã tự chọn Role khác qua UI.
+                if (existing.RoleCode is null)
+                {
+                    existing.RoleCode = roleCode;
+                    existing.UpdatedAt = now;
+                    changed = true;
+                }
+                continue;
+            }
 
             var position = new Position
             {
