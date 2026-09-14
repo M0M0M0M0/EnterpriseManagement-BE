@@ -84,45 +84,41 @@ public static class DemoDataSeeder
         await SeedCommissionsAsync(context, now, today, employees, kpiLevelsByPlan);
     }
 
+    // Chức vụ giờ chỉ là chức danh hiển thị (không còn RoleCode) — role cho tài khoản demo được
+    // suy ra riêng trong SeedUsersAsync qua RoleCodeByPosition bên dưới, không đọc từ Position.
+    private static readonly Dictionary<string, string> RoleCodeByPosition = new()
+    {
+        ["HEAD"] = "MANAGER",
+        ["DEPUTY"] = "MANAGER",
+        ["MANAGER"] = "MANAGER",
+        ["STAFF"] = "EMPLOYEE",
+    };
+
     // PositionSeeder chỉ seed HEAD/DEPUTY/MANAGER/STAFF khi bảng Positions đang rỗng — nếu Admin
     // đã tự tạo chức vụ khác qua UI trước khi seed này chạy (bảng không còn rỗng), 4 mã trên có
     // thể chưa từng tồn tại. Tự đảm bảo đủ 4 mã cần dùng ở đây (chỉ tạo mã nào còn thiếu, không
     // đụng chức vụ Admin đã tự tạo) thay vì phụ thuộc giả định PositionSeeder đã chạy.
     private static async Task<Dictionary<string, Position>> EnsurePositionsAsync(ApplicationDbContext context, DateTime now)
     {
-        var required = new (string Code, string Name, int Rank, string RoleCode)[]
+        var required = new (string Code, string Name, int Rank)[]
         {
-            ("HEAD", "Trưởng phòng", 10, "MANAGER"),
-            ("DEPUTY", "Phó phòng", 20, "MANAGER"),
-            ("MANAGER", "Quản lý", 30, "MANAGER"),
-            ("STAFF", "Nhân viên", 40, "EMPLOYEE"),
+            ("HEAD", "Trưởng phòng", 10),
+            ("DEPUTY", "Phó phòng", 20),
+            ("MANAGER", "Quản lý", 30),
+            ("STAFF", "Nhân viên", 40),
         };
 
         var positions = await context.Positions.ToDictionaryAsync(p => p.PositionCode);
         var changed = false;
-        foreach (var (code, name, rank, roleCode) in required)
+        foreach (var (code, name, rank) in required)
         {
-            if (positions.TryGetValue(code, out var existing))
-            {
-                // PositionSeeder có thể đã tạo sẵn 4 mã này (DB trống hoàn toàn, chạy trước
-                // DemoDataSeeder) nhưng KHÔNG set RoleCode — chỉ bỏ qua theo mã thôi thì user sẽ
-                // bị gán role sai (mặc định "EMPLOYEE") ở SeedUsersAsync. Backfill RoleCode nếu
-                // đang trống, không đụng nếu Admin đã tự chọn Role khác qua UI.
-                if (existing.RoleCode is null)
-                {
-                    existing.RoleCode = roleCode;
-                    existing.UpdatedAt = now;
-                    changed = true;
-                }
-                continue;
-            }
+            if (positions.ContainsKey(code)) continue;
 
             var position = new Position
             {
                 PositionCode = code,
                 PositionName = name,
                 RankLevel = rank,
-                RoleCode = roleCode,
                 IsActive = true,
                 CreatedAt = now,
             };
@@ -232,7 +228,7 @@ public static class DemoDataSeeder
         {
             var employee = employees[seed.Key];
             var position = positionsById[employee.PositionId];
-            var roleCode = position.RoleCode ?? "EMPLOYEE";
+            var roleCode = RoleCodeByPosition.GetValueOrDefault(position.PositionCode, "EMPLOYEE");
             if (!roles.TryGetValue(roleCode, out var role)) continue;
 
             var user = new User
