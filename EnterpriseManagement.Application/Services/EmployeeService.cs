@@ -86,6 +86,13 @@ public class EmployeeService : IEmployeeService
             ?? throw new InvalidOperationException($"Position code '{request.PositionCode}' not found.");
         var manager = await ResolveManagerAsync(request.ManagerCode);
 
+        if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
+        {
+            throw new InvalidOperationException("Vui lòng nhập đủ họ tên.");
+        }
+
+        employee.FirstName = request.FirstName;
+        employee.LastName = request.LastName;
         employee.Phone = request.Phone;
         employee.Address = request.Address;
         employee.DepartmentId = department.Id;
@@ -138,6 +145,8 @@ public class EmployeeService : IEmployeeService
     private static EmployeeDto ToDto(Employee employee) => new()
     {
         EmployeeCode = employee.EmployeeCode,
+        FirstName = employee.FirstName,
+        LastName = employee.LastName,
         FullName = $"{employee.FirstName} {employee.LastName}",
         Email = employee.Email,
         Phone = employee.Phone,
