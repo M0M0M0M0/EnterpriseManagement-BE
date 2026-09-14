@@ -24,7 +24,11 @@ public static class ActionPermissionSeeder
         new("attendance.adjustment.view", "Xem yêu cầu điều chỉnh công chờ duyệt", "attendance", "Xem danh sách yêu cầu điều chỉnh công đang chờ duyệt.", new[] { "MANAGER" }),
         new("attendance.adjustment.approve", "Duyệt/từ chối điều chỉnh công", "attendance", "Duyệt hoặc từ chối yêu cầu điều chỉnh công.", new[] { "MANAGER" }),
 
-        new("leave.request.self", "Xin nghỉ phép", "leave", "Gửi, xem và hủy đơn xin nghỉ của chính mình.", new[] { "EMPLOYEE" }),
+        // Manager cũng tự chấm công/gửi điều chỉnh công như Employee (xem attendance.punch,
+        // attendance.adjustment.self) nên cũng cần tự xin nghỉ phép cho chính mình — thiếu
+        // MANAGER ở đây khiến trang "Xin nghỉ phép" của Manager gọi GET /leave-requests/mine bị
+        // 403, làm Promise.all cùng batch fail theo và dropdown loại nghỉ không bao giờ hiện ra.
+        new("leave.request.self", "Xin nghỉ phép", "leave", "Gửi, xem và hủy đơn xin nghỉ của chính mình.", new[] { "EMPLOYEE", "MANAGER" }),
         new("leave.request.view", "Xem đơn xin nghỉ", "leave", "Xem danh sách đơn xin nghỉ đang chờ và lịch sử duyệt.", new[] { "MANAGER" }),
         new("leave.request.approve", "Duyệt/từ chối đơn xin nghỉ", "leave", "Duyệt hoặc từ chối đơn xin nghỉ.", new[] { "MANAGER" }),
         new("leavebalance.manage", "Cấp lại số ngày/giờ nghỉ", "leave", "Chỉnh số ngày/giờ nghỉ còn lại của nhân viên.", new[] { "MANAGER" }),
