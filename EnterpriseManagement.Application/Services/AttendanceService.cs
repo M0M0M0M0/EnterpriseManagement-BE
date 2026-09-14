@@ -9,18 +9,26 @@ namespace EnterpriseManagement.Application.Services;
 
 public class AttendanceService : IAttendanceService
 {
+    // Giờ chuẩn check-in: đúng/trước 8h15 tính Present, sau đó tính Late — mỗi phút nghỉ ngắn
+    // đã được duyệt trong buổi sáng cùng ngày cộng dồn thêm vào mốc này (xem
+    // GetApprovedShortLeaveMinutesAsync).
+    private static readonly TimeOnly StandardCheckInDeadline = new(8, 15);
+
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ILeaveRequestRepository _leaveRequestRepository;
 
     public AttendanceService(
         IAttendanceRepository attendanceRepository,
         IEmployeeRepository employeeRepository,
-        IDepartmentRepository departmentRepository)
+        IDepartmentRepository departmentRepository,
+        ILeaveRequestRepository leaveRequestRepository)
     {
         _attendanceRepository = attendanceRepository;
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
+        _leaveRequestRepository = leaveRequestRepository;
     }
 
     public async Task<AttendanceRecordDto> PunchAsync(string employeeCode)
@@ -40,7 +48,7 @@ public class AttendanceService : IAttendanceService
                 EmployeeId = employee.Id,
                 AttendanceDate = today,
                 CheckInTime = now,
-                Status = AttendanceStatus.Present,
+                Status = await DetermineCheckInStatusAsync(employee.Id, today, now),
                 CreatedAt = now
             };
             await _attendanceRepository.AddAsync(record);
@@ -52,7 +60,7 @@ public class AttendanceService : IAttendanceService
             record.CheckInTime = now;
             record.CheckOutTime = null;
             record.WorkingHours = null;
-            record.Status = AttendanceStatus.Present;
+            record.Status = await DetermineCheckInStatusAsync(employee.Id, today, now);
             record.Note = null;
             record.UpdatedAt = now;
         }
@@ -67,6 +75,68 @@ public class AttendanceService : IAttendanceService
         await _attendanceRepository.SaveChangesAsync();
 
         return ToDto(record, employee);
+    }
+
+    private async Task<AttendanceStatus> DetermineCheckInStatusAsync(long employeeId, DateOnly date, DateTime checkInTime)
+    {
+        var shortLeaveMinutes = await GetApprovedShortLeaveMinutesAsync(employeeId, date);
+        var deadline = shortLeaveMinutes > 0 ? StandardCheckInDeadline.AddMinutes((double)shortLeaveMinutes) : StandardCheckInDeadline;
+
+        return TimeOnly.FromDateTime(checkInTime) <= deadline ? AttendanceStatus.Present : AttendanceStatus.Late;
+    }
+
+    // Nghỉ ngắn đã được duyệt vào buổi sáng (trước 12h) cùng ngày cộng dồn vào giờ chuẩn
+    // check-in — xin nghỉ ngắn 30 phút thì được đi trễ thêm 30 phút mà vẫn tính Present, đúng
+    // với lý do đã xin nghỉ. Nghỉ ngắn buổi chiều không ảnh hưởng tới giờ check-in buổi sáng.
+    private async Task<decimal> GetApprovedShortLeaveMinutesAsync(long employeeId, DateOnly date)
+    {
+        var dayStart = date.ToDateTime(TimeOnly.MinValue);
+        var dayEnd = date.ToDateTime(TimeOnly.MaxValue);
+        var requests = await _leaveRequestRepository.GetActiveByEmployeeAndRangeAsync(employeeId, dayStart, dayEnd);
+
+        return requests
+            .Where(l => l.Status == LeaveRequestStatus.Approved
+                && l.LeaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset
+                && l.StartDate.TimeOfDay < new TimeSpan(12, 0, 0))
+            .Sum(l => l.TotalTime) * 60;
+    }
+
+    public async Task ApplyApprovedLeaveAsync(long employeeId, DateOnly startDate, DateOnly endDate, LeaveSession session)
+    {
+        var status = session == LeaveSession.FullDay ? AttendanceStatus.OnLeave : AttendanceStatus.HalfDay;
+        var now = VietnamClock.Now;
+
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            if (!DateRangeHelper.IsWeekday(date)) continue;
+
+            var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employeeId, date);
+            if (record is not null && record.CheckInTime is not null)
+            {
+                // Ngày này đã có chấm công thật (vd nghỉ nửa buổi, nửa buổi còn lại đã đi làm) —
+                // không ghi đè dữ liệu chấm công thật bằng trạng thái nghỉ phép.
+                continue;
+            }
+
+            if (record is null)
+            {
+                record = new AttendanceRecord
+                {
+                    EmployeeId = employeeId,
+                    AttendanceDate = date,
+                    Status = status,
+                    CreatedAt = now
+                };
+                await _attendanceRepository.AddAsync(record);
+            }
+            else
+            {
+                record.Status = status;
+                record.UpdatedAt = now;
+            }
+        }
+
+        await _attendanceRepository.SaveChangesAsync();
     }
 
     public async Task<IEnumerable<AttendanceRecordDto>> GetHistoryAsync(string employeeCode)

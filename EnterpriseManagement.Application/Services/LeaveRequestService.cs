@@ -13,19 +13,22 @@ public class LeaveRequestService : ILeaveRequestService
     private readonly ILeaveBalanceService _leaveBalanceService;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
+    private readonly IAttendanceService _attendanceService;
 
     public LeaveRequestService(
         ILeaveRequestRepository leaveRequestRepository,
         ILeaveTypeRepository leaveTypeRepository,
         ILeaveBalanceService leaveBalanceService,
         IEmployeeRepository employeeRepository,
-        IApprovalDelegationResolver approvalDelegationResolver)
+        IApprovalDelegationResolver approvalDelegationResolver,
+        IAttendanceService attendanceService)
     {
         _leaveRequestRepository = leaveRequestRepository;
         _leaveTypeRepository = leaveTypeRepository;
         _leaveBalanceService = leaveBalanceService;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
+        _attendanceService = attendanceService;
     }
 
     public async Task<LeaveRequestDto> SubmitAsync(SubmitLeaveRequest request, string employeeCode)
@@ -267,6 +270,17 @@ public class LeaveRequestService : ILeaveRequestService
         balance.UpdatedAt = VietnamClock.Now;
 
         await _leaveRequestRepository.SaveChangesAsync();
+
+        // Nghỉ ngắn (Session = null) không đánh dấu cả ngày/nửa buổi nghỉ — chỉ cộng dồn vào
+        // giờ chuẩn check-in lúc chấm công thật (xem AttendanceService.GetApprovedShortLeaveMinutesAsync).
+        if (leaveRequest.Session.HasValue)
+        {
+            await _attendanceService.ApplyApprovedLeaveAsync(
+                leaveRequest.EmployeeId,
+                DateOnly.FromDateTime(leaveRequest.StartDate),
+                DateOnly.FromDateTime(leaveRequest.EndDate),
+                leaveRequest.Session.Value);
+        }
 
         return ToDto(leaveRequest);
     }
