@@ -3,16 +3,23 @@ using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Attendance;
 using EnterpriseManagement.Domain.Entities.HR;
+using EnterpriseManagement.Domain.Entities.Leave;
 using EnterpriseManagement.Domain.Enums;
 
 namespace EnterpriseManagement.Application.Services;
 
 public class AttendanceService : IAttendanceService
 {
-    // Giờ chuẩn check-in: đúng/trước 8h15 tính Present, sau đó tính Late — mỗi phút nghỉ ngắn
-    // đã được duyệt trong buổi sáng cùng ngày cộng dồn thêm vào mốc này (xem
-    // GetApprovedShortLeaveMinutesAsync).
+    // Giờ chuẩn check-in buổi sáng: đúng/trước 8h15 tính Present, sau đó tính Late — mỗi phút
+    // nghỉ ngắn đã được duyệt trong buổi sáng cùng ngày cộng dồn thêm vào mốc này (xem
+    // GetApprovedShortLeaveMinutesAsync). Quá 2 tiếng so với giờ chuẩn (8h) mà vẫn chưa
+    // check-in và không có phép thì coi như bỏ nguyên buổi sáng (HalfDayAbsent), không tính
+    // Late nữa. Giờ chuẩn buổi chiều dùng khi nhân viên đã được duyệt nghỉ buổi sáng — nghĩa
+    // vụ thật của họ chỉ bắt đầu từ chiều nên so theo mốc này thay vì mốc buổi sáng.
+    private static readonly TimeOnly StandardCheckInTime = new(8, 0);
     private static readonly TimeOnly StandardCheckInDeadline = new(8, 15);
+    private static readonly TimeOnly HalfDayAbsentDeadline = StandardCheckInTime.AddHours(2);
+    private static readonly TimeOnly StandardAfternoonDeadline = new(13, 15);
 
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IEmployeeRepository _employeeRepository;
@@ -79,26 +86,44 @@ public class AttendanceService : IAttendanceService
 
     private async Task<AttendanceStatus> DetermineCheckInStatusAsync(long employeeId, DateOnly date, DateTime checkInTime)
     {
-        var shortLeaveMinutes = await GetApprovedShortLeaveMinutesAsync(employeeId, date);
+        var checkInTimeOnly = TimeOnly.FromDateTime(checkInTime);
+        var approvedLeavesToday = await GetApprovedLeavesForDateAsync(employeeId, date);
+
+        // Đã được duyệt nghỉ buổi sáng -> nghĩa vụ thật của ngày hôm nay chỉ bắt đầu từ chiều,
+        // so giờ check-in với giờ chuẩn buổi chiều thay vì buổi sáng (vd checkin 10h55 vẫn tính
+        // Present vì còn sớm hơn nhiều so với 13h15, không phải "đến muộn buổi sáng").
+        var hasApprovedMorningLeave = approvedLeavesToday.Any(l =>
+            l.LeaveType.AccrualPeriod != LeaveAccrualPeriod.MonthlyReset && l.Session == LeaveSession.Morning);
+        if (hasApprovedMorningLeave)
+        {
+            return checkInTimeOnly <= StandardAfternoonDeadline ? AttendanceStatus.Present : AttendanceStatus.Late;
+        }
+
+        // Không có phép mà quá 2 tiếng so với giờ chuẩn (8h) vẫn chưa check-in -> coi như bỏ
+        // nguyên buổi sáng không xin phép, cần trạng thái riêng để quản lý thấy rõ thay vì lẫn
+        // với "đến trễ vài phút".
+        if (checkInTimeOnly >= HalfDayAbsentDeadline)
+        {
+            return AttendanceStatus.HalfDayAbsent;
+        }
+
+        // Nghỉ ngắn đã được duyệt vào buổi sáng (trước 12h) cùng ngày cộng dồn vào giờ chuẩn
+        // check-in — xin nghỉ ngắn 30 phút thì được đi trễ thêm 30 phút mà vẫn tính Present.
+        var shortLeaveMinutes = approvedLeavesToday
+            .Where(l => l.LeaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset && l.StartDate.TimeOfDay < new TimeSpan(12, 0, 0))
+            .Sum(l => l.TotalTime) * 60;
         var deadline = shortLeaveMinutes > 0 ? StandardCheckInDeadline.AddMinutes((double)shortLeaveMinutes) : StandardCheckInDeadline;
 
-        return TimeOnly.FromDateTime(checkInTime) <= deadline ? AttendanceStatus.Present : AttendanceStatus.Late;
+        return checkInTimeOnly <= deadline ? AttendanceStatus.Present : AttendanceStatus.Late;
     }
 
-    // Nghỉ ngắn đã được duyệt vào buổi sáng (trước 12h) cùng ngày cộng dồn vào giờ chuẩn
-    // check-in — xin nghỉ ngắn 30 phút thì được đi trễ thêm 30 phút mà vẫn tính Present, đúng
-    // với lý do đã xin nghỉ. Nghỉ ngắn buổi chiều không ảnh hưởng tới giờ check-in buổi sáng.
-    private async Task<decimal> GetApprovedShortLeaveMinutesAsync(long employeeId, DateOnly date)
+    private async Task<List<LeaveRequest>> GetApprovedLeavesForDateAsync(long employeeId, DateOnly date)
     {
         var dayStart = date.ToDateTime(TimeOnly.MinValue);
         var dayEnd = date.ToDateTime(TimeOnly.MaxValue);
         var requests = await _leaveRequestRepository.GetActiveByEmployeeAndRangeAsync(employeeId, dayStart, dayEnd);
 
-        return requests
-            .Where(l => l.Status == LeaveRequestStatus.Approved
-                && l.LeaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset
-                && l.StartDate.TimeOfDay < new TimeSpan(12, 0, 0))
-            .Sum(l => l.TotalTime) * 60;
+        return requests.Where(l => l.Status == LeaveRequestStatus.Approved).ToList();
     }
 
     public async Task ApplyApprovedLeaveAsync(long employeeId, DateOnly startDate, DateOnly endDate, LeaveSession session)
