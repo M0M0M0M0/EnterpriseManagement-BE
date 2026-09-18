@@ -52,7 +52,6 @@ public class PositionService : IPositionService
             PositionCode = request.PositionCode,
             PositionName = request.PositionName,
             Description = request.Description,
-            RankLevel = request.RankLevel,
             IsActive = true,
             CreatedAt = VietnamClock.Now
         };
@@ -99,7 +98,6 @@ public class PositionService : IPositionService
 
         position.PositionName = request.PositionName;
         position.Description = request.Description;
-        position.RankLevel = request.RankLevel;
         position.UpdatedAt = VietnamClock.Now;
 
         await _positionRepository.SaveChangesAsync();
@@ -129,7 +127,6 @@ public class PositionService : IPositionService
         PositionName = position.PositionName,
         Description = position.Description,
         IsActive = position.IsActive,
-        StandardSalary = position.Salary?.StandardSalary,
-        RankLevel = position.RankLevel
+        StandardSalary = position.Salary?.StandardSalary
     };
 }

@@ -103,17 +103,13 @@ public class EmployeeService : IEmployeeService
             .GroupBy(e => e.ManagerId!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // CollectSubordinates đi theo thứ tự cây (quản lý trực tiếp trước, rồi mới tới cấp dưới
+        // của người đó) nên danh sách trả về đã đúng thứ tự trên xuống dưới, không cần sắp lại
+        // theo cấp bậc chức vụ.
         var result = new List<Employee>();
         CollectSubordinates(manager.Id, childrenByManagerId, result);
 
-        // RankLevel số càng nhỏ càng cao cấp (xem Position.cs) -> sắp tăng dần để cấp cao (Trưởng
-        // phòng...) hiện đầu danh sách, cấp thấp (Nhân viên) hiện cuối, đúng thứ tự trên xuống
-        // dưới trong sơ đồ tổ chức. Cùng cấp thì sắp theo tên cho ổn định, dễ dò.
-        return result
-            .OrderBy(e => e.Position.RankLevel)
-            .ThenBy(e => e.FirstName)
-            .ThenBy(e => e.LastName)
-            .Select(ToDto);
+        return result.Select(ToDto);
     }
 
     private static void CollectSubordinates(long managerId, Dictionary<long, List<Employee>> childrenByManagerId, List<Employee> result)

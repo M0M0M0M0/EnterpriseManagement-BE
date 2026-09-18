@@ -95,17 +95,17 @@ public static class DemoDataSeeder
     // đụng chức vụ Admin đã tự tạo) thay vì phụ thuộc giả định PositionSeeder đã chạy.
     private static async Task<Dictionary<string, Position>> EnsurePositionsAsync(ApplicationDbContext context, DateTime now)
     {
-        var required = new (string Code, string Name, int Rank)[]
+        var required = new (string Code, string Name)[]
         {
-            ("HEAD", "Trưởng phòng", 10),
-            ("DEPUTY", "Phó phòng", 20),
-            ("MANAGER", "Quản lý", 30),
-            ("STAFF", "Nhân viên", 40),
+            ("HEAD", "Trưởng phòng"),
+            ("DEPUTY", "Phó phòng"),
+            ("MANAGER", "Quản lý"),
+            ("STAFF", "Nhân viên"),
         };
 
         var positions = await context.Positions.ToDictionaryAsync(p => p.PositionCode);
         var changed = false;
-        foreach (var (code, name, rank) in required)
+        foreach (var (code, name) in required)
         {
             if (positions.ContainsKey(code)) continue;
 
@@ -113,7 +113,6 @@ public static class DemoDataSeeder
             {
                 PositionCode = code,
                 PositionName = name,
-                RankLevel = rank,
                 IsActive = true,
                 CreatedAt = now,
             };
