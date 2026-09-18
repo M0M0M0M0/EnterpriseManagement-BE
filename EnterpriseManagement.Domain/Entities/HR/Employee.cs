@@ -1,4 +1,3 @@
-using EnterpriseManagement.Domain.Entities.Sales;
 using EnterpriseManagement.Domain.Enums;
 
 namespace EnterpriseManagement.Domain.Entities.HR;
@@ -27,11 +26,6 @@ public class Employee
 
     public DateOnly HireDate { get; set; }
     public EmploymentStatus EmploymentStatus { get; set; }
-
-    // KPI Plan (mức doanh số + tỷ lệ hoa hồng) áp dụng cho nhân viên này khi tính hoa hồng —
-    // 1 nhân viên chỉ thuộc đúng 1 Plan tại 1 thời điểm, gán/gỡ qua trang quản lý KPI Plan.
-    public long? KpiPlanId { get; set; }
-    public KpiPlan? KpiPlan { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

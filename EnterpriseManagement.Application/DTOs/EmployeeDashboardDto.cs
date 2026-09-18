@@ -7,6 +7,5 @@ public class EmployeeDashboardDto
     public AttendanceRecordDto? TodayAttendance { get; set; }
     public decimal TotalRemainingLeaveDays { get; set; }
     public int PendingLeaveRequestsCount { get; set; }
-    public int PendingSalesCount { get; set; }
     public int PendingAttendanceAdjustmentsCount { get; set; }
 }

@@ -4,16 +4,15 @@ using EnterpriseManagement.Domain.Entities.Attendance;
 using EnterpriseManagement.Domain.Entities.HR;
 using EnterpriseManagement.Domain.Entities.Identity;
 using EnterpriseManagement.Domain.Entities.Leave;
-using EnterpriseManagement.Domain.Entities.Sales;
 using EnterpriseManagement.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManagement.Infrastructure.Persistence;
 
 // Seed 1 bộ dữ liệu công ty mẫu đầy đủ và liên kết chặt với nhau (phòng ban -> nhân viên ->
-// tài khoản -> chấm công/nghỉ phép/KPI/sale/hoa hồng) để có sẵn data thật dùng thử toàn bộ
-// tính năng, thay vì DB gần như trống. Chỉ chạy đúng 1 lần khi Departments đang rỗng (guard ở
-// SeedAsync) — Program.cs chỉ gọi seeder này khi IsDevelopment().
+// tài khoản -> chấm công/nghỉ phép) để có sẵn data thật dùng thử toàn bộ tính năng, thay vì
+// DB gần như trống. Chỉ chạy đúng 1 lần khi Departments đang rỗng (guard ở SeedAsync) —
+// Program.cs chỉ gọi seeder này khi IsDevelopment().
 public static class DemoDataSeeder
 {
     private const string DemoPassword = "Demo@1234";
@@ -78,10 +77,6 @@ public static class DemoDataSeeder
         var leaveTypes = await context.LeaveTypes.ToDictionaryAsync(lt => lt.LeaveTypeCode);
         var approvedLeaveDates = await SeedLeaveAsync(context, now, today, employees, leaveTypes);
         await SeedAttendanceAsync(context, now, today, employees, approvedLeaveDates);
-
-        var kpiLevelsByPlan = await SeedKpiPlansAsync(context, now, employees);
-        await SeedCustomersAndSalesAsync(context, now, today, employees);
-        await SeedCommissionsAsync(context, now, today, employees, kpiLevelsByPlan);
     }
 
     // Chức vụ giờ chỉ là chức danh hiển thị (không còn RoleCode) — role cho tài khoản demo được
@@ -525,243 +520,4 @@ public static class DemoDataSeeder
 
         await context.SaveChangesAsync();
     }
-
-    private static async Task<Dictionary<long, List<KpiLevel>>> SeedKpiPlansAsync(
-        ApplicationDbContext context, DateTime now, Dictionary<string, Employee> employees)
-    {
-        var officialPlan = new KpiPlan
-        {
-            PlanName = "KPI Nhân viên chính thức",
-            Description = "Áp dụng cho nhân viên Sales đã qua thử việc.",
-            IsActive = true,
-            CreatedAt = now,
-            Levels = new List<KpiLevel>
-            {
-                new() { LevelOrder = 1, MinimumRevenue = 0, CommissionRate = 0.01m, CreatedAt = now },
-                new() { LevelOrder = 2, MinimumRevenue = 10_000_000, CommissionRate = 0.02m, CreatedAt = now },
-                new() { LevelOrder = 3, MinimumRevenue = 20_000_000, CommissionRate = 0.03m, CreatedAt = now },
-                new() { LevelOrder = 4, MinimumRevenue = 30_000_000, CommissionRate = 0.05m, CreatedAt = now },
-                new() { LevelOrder = 5, MinimumRevenue = 50_000_000, CommissionRate = 0.07m, CreatedAt = now },
-            },
-        };
-
-        var probationPlan = new KpiPlan
-        {
-            PlanName = "KPI Thử việc",
-            Description = "Áp dụng cho nhân viên Sales đang trong giai đoạn thử việc.",
-            IsActive = true,
-            CreatedAt = now,
-            Levels = new List<KpiLevel>
-            {
-                new() { LevelOrder = 1, MinimumRevenue = 0, CommissionRate = 0.01m, CreatedAt = now },
-                new() { LevelOrder = 2, MinimumRevenue = 5_000_000, CommissionRate = 0.02m, CreatedAt = now },
-                new() { LevelOrder = 3, MinimumRevenue = 10_000_000, CommissionRate = 0.03m, CreatedAt = now },
-            },
-        };
-
-        context.KpiPlans.AddRange(officialPlan, probationPlan);
-        await context.SaveChangesAsync();
-
-        var officialMembers = new[] { "SALES_HEAD", "TEAM_LEAD_A", "TEAM_LEAD_B", "SALES_A1", "SALES_A2", "SALES_A3", "SALES_B1", "SALES_B2" };
-        foreach (var key in officialMembers)
-        {
-            employees[key].KpiPlanId = officialPlan.Id;
-        }
-        employees["SALES_B3"].KpiPlanId = probationPlan.Id;
-
-        await context.SaveChangesAsync();
-
-        return new Dictionary<long, List<KpiLevel>>
-        {
-            [officialPlan.Id] = officialPlan.Levels.ToList(),
-            [probationPlan.Id] = probationPlan.Levels.ToList(),
-        };
-    }
-
-    private static readonly (string Name, bool Company)[] CustomerNames =
-    {
-        ("Công ty TNHH Thành Phát", true), ("Nguyễn Thị Hồng Anh", false),
-        ("Công ty CP Đầu tư Minh Long", true), ("Trần Văn Bảo", false),
-        ("Công ty TNHH Xây dựng Hưng Thịnh", true), ("Lê Thị Kim Oanh", false),
-        ("Công ty TNHH Thương mại Đại Dương", true), ("Phạm Văn Quang", false),
-        ("Công ty CP Công nghệ Việt Tiến", true), ("Hoàng Văn Nam", false),
-        ("Công ty TNHH Dịch vụ An Khang", true), ("Vũ Thị Thanh Thảo", false),
-        ("Công ty CP Xuất nhập khẩu Phương Nam", true), ("Đặng Văn Hải", false),
-        ("Công ty TNHH Sản xuất Kim Cương", true), ("Bùi Thị Lệ Quyên", false),
-        ("Công ty CP Truyền thông Sao Việt", true), ("Đỗ Văn Thắng", false),
-    };
-
-    // (nhân viên phụ trách, doanh số Confirmed tháng trước, doanh số Confirmed tháng này,
-    // có thêm 1 sale Pending tháng trước không, có thêm 1 sale Cancelled tháng trước không)
-    private static readonly (string Key, decimal LastMonth, decimal ThisMonth, bool ExtraPending, bool ExtraCancelled)[] SalesPlan =
-    {
-        ("SALES_HEAD", 52_000_000, 12_000_000, true, false),
-        ("TEAM_LEAD_A", 45_000_000, 8_000_000, false, false),
-        ("TEAM_LEAD_B", 33_000_000, 0, false, true),
-        ("SALES_A1", 25_000_000, 9_000_000, false, false),
-        ("SALES_A2", 15_000_000, 0, true, false),
-        ("SALES_A3", 8_000_000, 0, false, true),
-        ("SALES_B1", 41_000_000, 10_000_000, true, false),
-        ("SALES_B2", 19_000_000, 0, false, false),
-        ("SALES_B3", 7_000_000, 4_000_000, false, false),
-    };
-
-    private static async Task SeedCustomersAndSalesAsync(
-        ApplicationDbContext context, DateTime now, DateOnly today, Dictionary<string, Employee> employees)
-    {
-        var lastMonthStart = new DateOnly(today.Year, today.Month, 1).AddMonths(-1);
-        var salesKeys = SalesPlan.Select(p => p.Key).ToArray();
-
-        var usedCustomerCodes = new HashSet<string>();
-        var customersByOwner = new Dictionary<string, List<Customer>>();
-        for (var i = 0; i < CustomerNames.Length; i++)
-        {
-            var ownerKey = salesKeys[i % salesKeys.Length];
-            var (name, isCompany) = CustomerNames[i];
-            var customer = new Customer
-            {
-                CustomerCode = NextEmployeeCode(usedCustomerCodes),
-                CustomerName = name,
-                Phone = $"0902{(200 + i):000000}",
-                Email = isCompany ? null : $"khachhang{i + 1}@example.com",
-                Address = "TP.HCM",
-                AssignedEmployeeId = employees[ownerKey].Id,
-                Status = i % 6 == 0 ? CustomerStatus.Potential : CustomerStatus.Active,
-                CreatedAt = now.AddDays(-(60 - i)),
-            };
-            context.Customers.Add(customer);
-
-            if (!customersByOwner.TryGetValue(ownerKey, out var list))
-            {
-                customersByOwner[ownerKey] = list = new List<Customer>();
-            }
-            list.Add(customer);
-        }
-        await context.SaveChangesAsync();
-
-        var usedSaleCodes = new HashSet<string>();
-        foreach (var plan in SalesPlan)
-        {
-            var employee = employees[plan.Key];
-            var customers = customersByOwner[plan.Key];
-
-            AddConfirmedSalesSplit(context, usedSaleCodes, employee, customers, plan.LastMonth, lastMonthStart, now);
-            if (plan.ThisMonth > 0)
-            {
-                AddConfirmedSalesSplit(context, usedSaleCodes, employee, customers, plan.ThisMonth, new DateOnly(today.Year, today.Month, 1), now, upTo: today);
-            }
-            if (plan.ExtraPending)
-            {
-                context.Sales.Add(NewSale(usedSaleCodes, employee, customers[0], 6_000_000, lastMonthStart.AddDays(25), now, SaleStatus.Pending));
-            }
-            if (plan.ExtraCancelled)
-            {
-                var sale = NewSale(usedSaleCodes, employee, customers[^1], 9_000_000, lastMonthStart.AddDays(20), now, SaleStatus.Cancelled);
-                sale.RejectionReason = "Khách hàng đổi ý, không còn nhu cầu.";
-                context.Sales.Add(sale);
-            }
-        }
-
-        await context.SaveChangesAsync();
-    }
-
-    private static void AddConfirmedSalesSplit(
-        ApplicationDbContext context, HashSet<string> usedSaleCodes, Employee employee, List<Customer> customers,
-        decimal total, DateOnly monthStart, DateTime now, DateOnly? upTo = null)
-    {
-        var parts = total switch
-        {
-            <= 10_000_000 => new[] { total },
-            <= 25_000_000 => new[] { total * 0.6m, total * 0.4m },
-            _ => new[] { total * 0.4m, total * 0.35m, total * 0.25m },
-        };
-
-        var maxDay = upTo.HasValue ? upTo.Value.Day : DateTime.DaysInMonth(monthStart.Year, monthStart.Month);
-        for (var i = 0; i < parts.Length; i++)
-        {
-            var day = Math.Min(maxDay, 3 + i * 8);
-            var orderDate = new DateOnly(monthStart.Year, monthStart.Month, day);
-            var customer = customers[i % customers.Count];
-            context.Sales.Add(NewSale(usedSaleCodes, employee, customer, Math.Round(parts[i], 0), orderDate, now, SaleStatus.Confirmed));
-        }
-    }
-
-    private static Sale NewSale(
-        HashSet<string> usedSaleCodes, Employee employee, Customer customer, decimal amount, DateOnly orderDate, DateTime now, SaleStatus status)
-    {
-        string code;
-        do
-        {
-            code = RandomCodeGenerator.Generate(10);
-        }
-        while (!usedSaleCodes.Add(code));
-
-        var sale = new Sale
-        {
-            SaleCode = code,
-            CustomerId = customer.Id,
-            EmployeeId = employee.Id,
-            Amount = amount,
-            OrderDate = orderDate.ToDateTime(new TimeOnly(10, 0)),
-            Status = status,
-            CreatedAt = now,
-        };
-
-        if (status == SaleStatus.Confirmed)
-        {
-            sale.ApprovedAt = now;
-        }
-
-        return sale;
-    }
-
-    private static async Task SeedCommissionsAsync(
-        ApplicationDbContext context, DateTime now, DateOnly today,
-        Dictionary<string, Employee> employees, Dictionary<long, List<KpiLevel>> levelsByPlan)
-    {
-        var lastMonthStart = new DateOnly(today.Year, today.Month, 1).AddMonths(-1);
-        var lastMonthEnd = new DateOnly(today.Year, today.Month, 1).AddDays(-1);
-        var paidKeys = new HashSet<string> { "SALES_HEAD", "TEAM_LEAD_A", "SALES_A1", "SALES_B1" };
-
-        foreach (var plan in SalesPlan)
-        {
-            var employee = employees[plan.Key];
-            if (employee.KpiPlanId is null) continue;
-
-            var levels = levelsByPlan[employee.KpiPlanId.Value];
-            var matchedLevel = levels
-                .Where(l => l.MinimumRevenue <= plan.LastMonth)
-                .OrderByDescending(l => l.MinimumRevenue)
-                .First();
-
-            var approverId = employees.TryGetValue(GetApprovalManagerKey(plan.Key), out var manager) ? manager.Id : employees["CEO"].Id;
-            var isPaid = paidKeys.Contains(plan.Key);
-
-            context.SalesCommissions.Add(new SalesCommission
-            {
-                EmployeeId = employee.Id,
-                PeriodStartDate = lastMonthStart,
-                PeriodEndDate = lastMonthEnd,
-                TotalRevenue = plan.LastMonth,
-                KpiLevelId = matchedLevel.Id,
-                CommissionRate = matchedLevel.CommissionRate,
-                CommissionAmount = plan.LastMonth * matchedLevel.CommissionRate,
-                Status = isPaid ? CommissionStatus.Paid : CommissionStatus.Approved,
-                ApprovedBy = approverId,
-                ApprovedAt = now,
-                CreatedAt = now,
-            });
-        }
-
-        await context.SaveChangesAsync();
-    }
-
-    private static string GetApprovalManagerKey(string employeeKey) => employeeKey switch
-    {
-        "SALES_HEAD" => "CEO",
-        "TEAM_LEAD_A" or "TEAM_LEAD_B" => "SALES_HEAD",
-        "SALES_A1" or "SALES_A2" or "SALES_A3" => "TEAM_LEAD_A",
-        "SALES_B1" or "SALES_B2" or "SALES_B3" => "TEAM_LEAD_B",
-        _ => "CEO",
-    };
 }

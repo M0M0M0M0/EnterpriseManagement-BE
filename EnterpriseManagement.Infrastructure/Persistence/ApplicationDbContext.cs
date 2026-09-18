@@ -4,8 +4,6 @@ using EnterpriseManagement.Domain.Entities.Auditing;
 using EnterpriseManagement.Domain.Entities.HR;
 using EnterpriseManagement.Domain.Entities.Identity;
 using EnterpriseManagement.Domain.Entities.Leave;
-using EnterpriseManagement.Domain.Entities.Payroll;
-using EnterpriseManagement.Domain.Entities.Sales;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManagement.Infrastructure.Persistence;
@@ -40,19 +38,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
-
-    // Sales
-    public DbSet<Customer> Customers => Set<Customer>();
-    public DbSet<Sale> Sales => Set<Sale>();
-    public DbSet<KpiPlan> KpiPlans => Set<KpiPlan>();
-    public DbSet<KpiLevel> KpiLevels => Set<KpiLevel>();
-    public DbSet<SalesCommission> SalesCommissions => Set<SalesCommission>();
-
-    // Payroll
-    public DbSet<SalaryStructure> SalaryStructures => Set<SalaryStructure>();
-    public DbSet<PayrollPeriod> PayrollPeriods => Set<PayrollPeriod>();
-    public DbSet<Payroll> Payrolls => Set<Payroll>();
-    public DbSet<PayrollDetail> PayrollDetails => Set<PayrollDetail>();
 
     // Auditing
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();

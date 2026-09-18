@@ -12,22 +12,19 @@ public class DashboardService : IDashboardService
     private readonly IAttendanceAdjustmentRepository _attendanceAdjustmentRepository;
     private readonly ILeaveBalanceRepository _leaveBalanceRepository;
     private readonly ILeaveRequestRepository _leaveRequestRepository;
-    private readonly ISaleRepository _saleRepository;
 
     public DashboardService(
         IEmployeeRepository employeeRepository,
         IAttendanceRepository attendanceRepository,
         IAttendanceAdjustmentRepository attendanceAdjustmentRepository,
         ILeaveBalanceRepository leaveBalanceRepository,
-        ILeaveRequestRepository leaveRequestRepository,
-        ISaleRepository saleRepository)
+        ILeaveRequestRepository leaveRequestRepository)
     {
         _employeeRepository = employeeRepository;
         _attendanceRepository = attendanceRepository;
         _attendanceAdjustmentRepository = attendanceAdjustmentRepository;
         _leaveBalanceRepository = leaveBalanceRepository;
         _leaveRequestRepository = leaveRequestRepository;
-        _saleRepository = saleRepository;
     }
 
     public async Task<EmployeeDashboardDto> GetEmployeeDashboardAsync(string employeeCode)
@@ -41,8 +38,6 @@ public class DashboardService : IDashboardService
         var balances = await _leaveBalanceRepository.GetByEmployeeAndYearAsync(employee.Id, today.Year);
         var pendingLeaves = (await _leaveRequestRepository.GetByEmployeeIdAsync(employee.Id))
             .Count(l => l.Status == LeaveRequestStatus.Pending);
-        var pendingSales = (await _saleRepository.GetByEmployeeIdAsync(employee.Id))
-            .Count(s => s.Status == SaleStatus.Pending);
         var pendingAdjustments = (await _attendanceAdjustmentRepository.GetByEmployeeIdAsync(employee.Id))
             .Count(a => a.Status == ApprovalStatus.Pending);
 
@@ -64,7 +59,6 @@ public class DashboardService : IDashboardService
             // cùng đơn vị nên không gộp chung vào tổng "ngày phép còn lại" này.
             TotalRemainingLeaveDays = balances.Where(b => b.Unit == LeaveUnit.Days).Sum(b => b.RemainingTime),
             PendingLeaveRequestsCount = pendingLeaves,
-            PendingSalesCount = pendingSales,
             PendingAttendanceAdjustmentsCount = pendingAdjustments
         };
     }
@@ -79,25 +73,16 @@ public class DashboardService : IDashboardService
 
         var pendingLeaves = (await _leaveRequestRepository.GetPendingAsync())
             .Count(l => teamIds.Contains(l.EmployeeId));
-        var pendingSales = (await _saleRepository.GetPendingAsync())
-            .Count(s => teamIds.Contains(s.EmployeeId));
         var pendingAdjustments = (await _attendanceAdjustmentRepository.GetPendingAsync())
             .Count(a => teamIds.Contains(a.RequestedBy));
 
         var today = VietnamClock.Today;
-        var monthStart = new DateOnly(today.Year, today.Month, 1);
 
-        decimal monthlyRevenue = 0;
         var presentToday = 0;
         var absentToday = 0;
 
         foreach (var member in team)
         {
-            var sales = await _saleRepository.GetByEmployeeIdAsync(member.Id);
-            monthlyRevenue += sales
-                .Where(s => s.Status == SaleStatus.Confirmed && DateOnly.FromDateTime(s.OrderDate) >= monthStart)
-                .Sum(s => s.Amount);
-
             var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(member.Id, today);
             if (todayRecord is not null && todayRecord.Status == AttendanceStatus.Present)
             {
@@ -114,9 +99,7 @@ public class DashboardService : IDashboardService
             ManagerCode = manager.EmployeeCode,
             TeamSize = team.Count,
             PendingLeaveRequestsCount = pendingLeaves,
-            PendingSalesCount = pendingSales,
             PendingAttendanceAdjustmentsCount = pendingAdjustments,
-            TeamMonthlyRevenue = monthlyRevenue,
             TeamPresentTodayCount = presentToday,
             TeamAbsentTodayCount = absentToday
         };

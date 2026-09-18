@@ -1,9 +1,0 @@
-namespace EnterpriseManagement.Application.DTOs;
-
-public class CreateCustomerRequest
-{
-    public string CustomerName { get; set; } = string.Empty;
-    public string? Phone { get; set; }
-    public string? Email { get; set; }
-    public string? Address { get; set; }
-}

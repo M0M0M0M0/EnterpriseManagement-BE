@@ -8,7 +8,6 @@ public class OrgTreeNodeDto
     public string DepartmentName { get; set; } = string.Empty;
     public string EmploymentStatus { get; set; } = string.Empty;
     public string TodayAttendanceStatus { get; set; } = string.Empty;
-    public decimal MonthlyRevenue { get; set; }
     public int SubordinateCount { get; set; }
     public List<OrgTreeNodeDto> Subordinates { get; set; } = new();
 }

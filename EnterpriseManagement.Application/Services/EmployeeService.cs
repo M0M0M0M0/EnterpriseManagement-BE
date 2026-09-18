@@ -11,7 +11,6 @@ public class EmployeeService : IEmployeeService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IPositionRepository _positionRepository;
-    private readonly ISaleRepository _saleRepository;
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
@@ -20,7 +19,6 @@ public class EmployeeService : IEmployeeService
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
         IPositionRepository positionRepository,
-        ISaleRepository saleRepository,
         IAttendanceRepository attendanceRepository,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
@@ -28,7 +26,6 @@ public class EmployeeService : IEmployeeService
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
-        _saleRepository = saleRepository;
         _attendanceRepository = attendanceRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
@@ -154,31 +151,25 @@ public class EmployeeService : IEmployeeService
         }
 
         var today = VietnamClock.Today;
-        var monthStart = new DateOnly(today.Year, today.Month, 1);
         var nodes = new List<OrgTreeNodeDto>();
         foreach (var root in roots)
         {
-            nodes.Add(await BuildOrgTreeNodeAsync(root, childrenByManagerId, today, monthStart));
+            nodes.Add(await BuildOrgTreeNodeAsync(root, childrenByManagerId, today));
         }
 
         return nodes;
     }
 
     private async Task<OrgTreeNodeDto> BuildOrgTreeNodeAsync(
-        Employee employee, Dictionary<long, List<Employee>> childrenByManagerId, DateOnly today, DateOnly monthStart)
+        Employee employee, Dictionary<long, List<Employee>> childrenByManagerId, DateOnly today)
     {
-        var sales = await _saleRepository.GetByEmployeeIdAsync(employee.Id);
-        var monthlyRevenue = sales
-            .Where(s => s.Status == SaleStatus.Confirmed && DateOnly.FromDateTime(s.OrderDate) >= monthStart)
-            .Sum(s => s.Amount);
-
         var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
 
         var children = childrenByManagerId.TryGetValue(employee.Id, out var direct) ? direct : new List<Employee>();
         var subordinates = new List<OrgTreeNodeDto>();
         foreach (var child in children)
         {
-            subordinates.Add(await BuildOrgTreeNodeAsync(child, childrenByManagerId, today, monthStart));
+            subordinates.Add(await BuildOrgTreeNodeAsync(child, childrenByManagerId, today));
         }
 
         return new OrgTreeNodeDto
@@ -189,7 +180,6 @@ public class EmployeeService : IEmployeeService
             DepartmentName = employee.Department.DepartmentName,
             EmploymentStatus = employee.EmploymentStatus.ToString(),
             TodayAttendanceStatus = todayRecord?.Status.ToString() ?? "ChuaChamCong",
-            MonthlyRevenue = monthlyRevenue,
             SubordinateCount = children.Count,
             Subordinates = subordinates
         };
