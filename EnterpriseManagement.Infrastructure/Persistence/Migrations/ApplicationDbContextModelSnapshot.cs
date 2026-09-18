@@ -379,10 +379,6 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Property<int>("RankLevel")
                         .HasColumnType("int");
 
-                    b.Property<string>("RoleCode")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 

@@ -84,7 +84,7 @@ public class AttendanceService : IAttendanceService
         return ToDto(record, employee);
     }
 
-    private async Task<AttendanceStatus> DetermineCheckInStatusAsync(long employeeId, DateOnly date, DateTime checkInTime)
+    public async Task<AttendanceStatus> DetermineCheckInStatusAsync(long employeeId, DateOnly date, DateTime checkInTime)
     {
         var checkInTimeOnly = TimeOnly.FromDateTime(checkInTime);
         var approvedLeavesToday = await GetApprovedLeavesForDateAsync(employeeId, date);

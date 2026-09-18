@@ -48,6 +48,11 @@ public class LeaveRequestService : ILeaveRequestService
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
             ?? throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' not found.");
 
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            throw new InvalidOperationException("Vui lòng nhập lý do xin nghỉ.");
+        }
+
         var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request, VietnamClock.Now);
 
         // Chặn nộp đơn trùng thời gian với đơn Pending/Approved đã có của chính nhân viên đó —

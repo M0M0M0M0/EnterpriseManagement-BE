@@ -12,6 +12,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     private readonly IAttendanceRepository _attendanceRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
+    private readonly IAttendanceService _attendanceService;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
 
@@ -20,6 +21,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         IAttendanceRepository attendanceRepository,
         IEmployeeRepository employeeRepository,
         IApprovalDelegationResolver approvalDelegationResolver,
+        IAttendanceService attendanceService,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
     {
@@ -27,6 +29,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         _attendanceRepository = attendanceRepository;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
+        _attendanceService = attendanceService;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
     }
@@ -149,17 +152,20 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             adjustment.Attendance.CheckOutTime = adjustment.NewCheckOutTime;
         }
 
+        // Tính lại đúng trạng thái theo giờ check-in mới (Present/Late/HalfDayAbsent) bằng chính
+        // logic PunchAsync đang dùng — thay vì chỉ xử lý riêng trường hợp Absent -> Present, vì
+        // giờ check-in sửa lại có thể khiến ngày đó chuyển từ Late/HalfDayAbsent về đúng giờ hoặc
+        // ngược lại.
+        if (adjustment.Attendance.CheckInTime.HasValue)
+        {
+            adjustment.Attendance.Status = await _attendanceService.DetermineCheckInStatusAsync(
+                adjustment.Attendance.EmployeeId, adjustment.Attendance.AttendanceDate, adjustment.Attendance.CheckInTime.Value);
+        }
+
         if (adjustment.Attendance.CheckInTime.HasValue && adjustment.Attendance.CheckOutTime.HasValue)
         {
             adjustment.Attendance.WorkingHours =
                 (decimal)(adjustment.Attendance.CheckOutTime.Value - adjustment.Attendance.CheckInTime.Value).TotalHours;
-
-            // Record được tạo rỗng lúc submit (nhân viên quên chấm công cả ngày) mặc định Status = Absent;
-            // giờ đã có đủ giờ vào/ra thật thì đổi lại thành Present cho đúng.
-            if (adjustment.Attendance.Status == AttendanceStatus.Absent)
-            {
-                adjustment.Attendance.Status = AttendanceStatus.Present;
-            }
         }
 
         adjustment.Attendance.UpdatedAt = VietnamClock.Now;
