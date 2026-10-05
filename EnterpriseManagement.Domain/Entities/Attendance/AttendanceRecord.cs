@@ -20,6 +20,15 @@ public class AttendanceRecord
     public AttendanceStatus Status { get; set; }
     public string? Note { get; set; }
 
+    // Vị trí GPS và ảnh chụp lúc chấm công, chỉ để làm bằng chứng cho quản lý xem lại (không dùng nhận diện
+    // khuôn mặt). PhotoPath là đường dẫn tương đối trong thư mục lưu ảnh của server, không phải URL công khai.
+    public double? CheckInLatitude { get; set; }
+    public double? CheckInLongitude { get; set; }
+    public string? CheckInPhotoPath { get; set; }
+    public double? CheckOutLatitude { get; set; }
+    public double? CheckOutLongitude { get; set; }
+    public string? CheckOutPhotoPath { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

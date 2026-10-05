@@ -14,6 +14,8 @@ public class AttendanceRecordConfiguration : IEntityTypeConfiguration<Attendance
         builder.Property(x => x.WorkingHours).HasPrecision(5, 2);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.CheckInPhotoPath).HasMaxLength(500);
+        builder.Property(x => x.CheckOutPhotoPath).HasMaxLength(500);
 
         builder.HasOne(x => x.Employee)
             .WithMany()
