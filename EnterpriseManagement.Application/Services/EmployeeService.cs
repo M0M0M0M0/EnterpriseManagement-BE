@@ -12,6 +12,7 @@ public class EmployeeService : IEmployeeService
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IPositionRepository _positionRepository;
     private readonly IAttendanceRepository _attendanceRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
 
@@ -20,6 +21,7 @@ public class EmployeeService : IEmployeeService
         IDepartmentRepository departmentRepository,
         IPositionRepository positionRepository,
         IAttendanceRepository attendanceRepository,
+        IUserRepository userRepository,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
     {
@@ -27,6 +29,7 @@ public class EmployeeService : IEmployeeService
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
         _attendanceRepository = attendanceRepository;
+        _userRepository = userRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
     }
@@ -226,6 +229,17 @@ public class EmployeeService : IEmployeeService
 
         employee.EmploymentStatus = isActive ? EmploymentStatus.Active : EmploymentStatus.Terminated;
         employee.UpdatedAt = VietnamClock.Now;
+
+        // Cho nghỉ việc thì khoá luôn các tài khoản gắn với hồ sơ này, để hai trạng thái không bị lệch nhau.
+        // Phục hồi hồ sơ thì KHÔNG tự mở lại tài khoản: Admin chủ động mở để tránh cấp lại quyền ngoài ý muốn.
+        if (!isActive)
+        {
+            var users = await _userRepository.GetAllAsync();
+            foreach (var user in users.Where(u => u.EmployeeId == employee.Id && u.IsActive))
+            {
+                user.IsActive = false;
+            }
+        }
 
         await _employeeRepository.SaveChangesAsync();
         await LogAsync(isActive ? "Activate" : "Deactivate", employee.Id);
