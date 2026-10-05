@@ -72,6 +72,12 @@ dotnet ef database update --project EnterpriseManagement.Infrastructure --startu
 Lệnh này tạo toàn bộ bảng theo các migration đã có sẵn trong repo. Chỉ cần
 chạy lại nếu có migration mới, hoặc database bị xóa/tạo lại từ đầu.
 
+> **Sau mỗi lần `git pull` code mới, luôn chạy lại lệnh trên trước khi chạy backend.**
+> Backend không tự migrate khi khởi động; nếu quên, DB cũ thiếu cột/bảng mới và API
+> báo lỗi dạng `Invalid column name '...'`. Nếu vẫn lỗi hoặc muốn làm lại từ đầu
+> (xóa sạch dữ liệu): `docker compose down -v`, `docker compose up -d`, đợi
+> khoảng 30 giây rồi chạy lại lệnh migrate.
+
 ## 5. Chạy Backend API
 
 ```bash
