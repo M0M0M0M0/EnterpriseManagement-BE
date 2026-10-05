@@ -69,7 +69,8 @@ public class UserService : IUserService
             Token = token,
             Username = user.Username,
             EmployeeCode = user.Employee?.EmployeeCode,
-            Roles = roles
+            Roles = roles,
+            Permissions = permissions
         };
     }
 
