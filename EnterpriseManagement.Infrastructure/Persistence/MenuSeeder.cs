@@ -127,13 +127,16 @@ public static class MenuSeeder
         // cấp thêm permission "page.employee.attendance" cho MANAGER; nhờ MenuService.GetMineAsync
         // khớp menu theo BẤT KỲ permission nào trong MenuPermissions, menu EMPLOYEE_ATTENDANCE tự
         // xuất hiện trong /api/menus/mine của Manager mà không cần thêm MenuCode mới.
-        await GrantManagerSelfAttendanceMenuAsync(context, now);
+        await GrantManagerSelfMenuAsync(context, now, "page.employee.attendance");
+
+        // Tương tự, Manager cũng tự xin nghỉ phép: tái dùng trang "Xin nghỉ phép" (route /employee/leave).
+        await GrantManagerSelfMenuAsync(context, now, "page.employee.leave");
     }
 
-    private static async Task GrantManagerSelfAttendanceMenuAsync(ApplicationDbContext context, DateTime now)
+    private static async Task GrantManagerSelfMenuAsync(ApplicationDbContext context, DateTime now, string permissionCode)
     {
         var managerRole = await context.Roles.FirstOrDefaultAsync(r => r.RoleCode == "MANAGER");
-        var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == "page.employee.attendance");
+        var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == permissionCode);
         if (managerRole is null || permission is null) return;
 
         var alreadyGranted = await context.RolePermissions
