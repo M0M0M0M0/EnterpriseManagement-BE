@@ -5,7 +5,11 @@ namespace EnterpriseManagement.Application.Interfaces;
 
 public interface IAttendanceService
 {
-    Task<AttendanceRecordDto> PunchAsync(string employeeCode);
+    // Chỉ chấm công được khi đang trong bán kính cho phép quanh vị trí công ty và có ảnh kèm theo;
+    // vị trí và ảnh được lưu lại làm bằng chứng cho giờ vào hoặc giờ ra tương ứng.
+    Task<AttendanceRecordDto> PunchAsync(string employeeCode, PunchRequest request);
+
+    OfficeLocationDto GetOfficeLocation();
     Task<IEnumerable<AttendanceRecordDto>> GetHistoryAsync(string employeeCode);
     Task<IEnumerable<AttendanceRecordDto>> GetByDepartmentAsync(string departmentCode, DateOnly startDate, DateOnly endDate);
 

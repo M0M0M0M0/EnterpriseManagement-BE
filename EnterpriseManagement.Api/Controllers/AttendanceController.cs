@@ -1,3 +1,5 @@
+using System.Globalization;
+using EnterpriseManagement.Api.Requests;
 using EnterpriseManagement.Api.Security;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
@@ -25,19 +27,92 @@ public class AttendanceController : ControllerBase
         _currentUserService = currentUserService;
     }
 
+    private const long MaxPhotoBytes = 5 * 1024 * 1024;
+
+    // Vị trí công ty và bán kính cho phép, để app hiển thị khoảng cách trước khi chấm công.
+    [HttpGet("office-location")]
+    public ActionResult<OfficeLocationDto> GetOfficeLocation()
+    {
+        return Ok(_attendanceService.GetOfficeLocation());
+    }
+
     [HttpPost("punch")]
     [RequirePermission("attendance.punch")]
-    public async Task<ActionResult<AttendanceRecordDto>> Punch()
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<AttendanceRecordDto>> Punch([FromForm] PunchForm form)
     {
+        if (!double.TryParse(form.Latitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude) ||
+            !double.TryParse(form.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude))
+        {
+            return BadRequest(new { message = "Thiếu hoặc sai toạ độ vị trí." });
+        }
+
+        // Ảnh chỉ bắt buộc khi check-in (service quyết định); check-out không cần, có gửi cũng không lưu.
+        Stream? photoStream = null;
+        string? extension = null;
+        var photo = form.Photo;
+        if (photo is { Length: > 0 })
+        {
+            if (photo.Length > MaxPhotoBytes)
+            {
+                return BadRequest(new { message = "Ảnh quá lớn, tối đa 5 MB." });
+            }
+
+            photoStream = photo.OpenReadStream();
+            extension = await DetectImageExtensionAsync(photoStream);
+            if (extension is null)
+            {
+                await photoStream.DisposeAsync();
+                return BadRequest(new { message = "Ảnh phải là định dạng JPEG hoặc PNG." });
+            }
+        }
+
         try
         {
-            var result = await _attendanceService.PunchAsync(_currentUserService.EmployeeCode!);
+            var request = new PunchRequest
+            {
+                Latitude = latitude,
+                Longitude = longitude,
+                IsMockLocation = form.IsMockLocation,
+                Photo = photoStream,
+                PhotoExtension = extension ?? ".jpg"
+            };
+
+            var result = await _attendanceService.PunchAsync(_currentUserService.EmployeeCode!, request);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
+        finally
+        {
+            if (photoStream is not null)
+            {
+                await photoStream.DisposeAsync();
+            }
+        }
+    }
+
+    // Xác định định dạng theo vài byte đầu của file (không tin tên file hay Content-Type do client gửi),
+    // rồi đưa con trỏ về đầu để đọc lại toàn bộ.
+    private static async Task<string?> DetectImageExtensionAsync(Stream stream)
+    {
+        var header = new byte[4];
+        var read = await stream.ReadAsync(header.AsMemory(0, 4));
+        stream.Seek(0, SeekOrigin.Begin);
+
+        if (read >= 3 && header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF)
+        {
+            return ".jpg";
+        }
+
+        if (read >= 4 && header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47)
+        {
+            return ".png";
+        }
+
+        return null;
     }
 
     [HttpGet("{employeeCode}/history")]

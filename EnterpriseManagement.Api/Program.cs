@@ -1,11 +1,13 @@
 using System.Text;
 using EnterpriseManagement.Api.Security;
 using EnterpriseManagement.Api.Services;
+using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Application.Services;
 using EnterpriseManagement.Infrastructure.Persistence;
 using EnterpriseManagement.Infrastructure.Repositories;
 using EnterpriseManagement.Infrastructure.Security;
+using EnterpriseManagement.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -60,6 +62,13 @@ builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IPositionRepository, PositionRepository>();
 builder.Services.AddScoped<IPositionService, PositionService>();
 builder.Services.AddScoped<IPositionSalaryRepository, PositionSalaryRepository>();
+var attendanceLocation = builder.Configuration.GetSection(AttendanceLocationOptions.SectionName)
+    .Get<AttendanceLocationOptions>() ?? new AttendanceLocationOptions();
+builder.Services.AddSingleton(attendanceLocation);
+var attendancePhotoDirectory = Path.Combine(
+    builder.Environment.ContentRootPath,
+    builder.Configuration["Attendance:PhotoDirectory"] ?? "App_Data/attendance-photos");
+builder.Services.AddSingleton<IAttendancePhotoStorage>(new FileSystemAttendancePhotoStorage(attendancePhotoDirectory));
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAttendanceAdjustmentRepository, AttendanceAdjustmentRepository>();
@@ -86,7 +95,10 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(
                 "http://localhost:5173",
-                "http://127.0.0.1:5173")
+                "http://127.0.0.1:5173",
+                // Flutter web (app mobile), chạy cố định qua `flutter run -d chrome --web-port=5080`.
+                "http://localhost:5080",
+                "http://127.0.0.1:5080")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });

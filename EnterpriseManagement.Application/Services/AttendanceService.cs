@@ -25,27 +25,57 @@ public class AttendanceService : IAttendanceService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ILeaveRequestRepository _leaveRequestRepository;
+    private readonly IAttendancePhotoStorage _photoStorage;
+    private readonly AttendanceLocationOptions _office;
 
     public AttendanceService(
         IAttendanceRepository attendanceRepository,
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
-        ILeaveRequestRepository leaveRequestRepository)
+        ILeaveRequestRepository leaveRequestRepository,
+        IAttendancePhotoStorage photoStorage,
+        AttendanceLocationOptions office)
     {
         _attendanceRepository = attendanceRepository;
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _leaveRequestRepository = leaveRequestRepository;
+        _photoStorage = photoStorage;
+        _office = office;
     }
 
-    public async Task<AttendanceRecordDto> PunchAsync(string employeeCode)
+    public OfficeLocationDto GetOfficeLocation() => new()
+    {
+        Name = _office.OfficeName,
+        Latitude = _office.OfficeLatitude,
+        Longitude = _office.OfficeLongitude,
+        AllowedRadiusMeters = _office.AllowedRadiusMeters
+    };
+
+    public async Task<AttendanceRecordDto> PunchAsync(string employeeCode, PunchRequest request)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
+        // Kiểm tra vị trí trước khi lưu bất cứ thứ gì (kể cả ảnh), để lần chấm công bị từ chối không để lại dữ liệu.
+        ValidateLocation(request);
+
         var today = VietnamClock.Today;
         var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
         var now = VietnamClock.Now;
+
+        // Check-in = chưa có bản ghi hoặc bản ghi chưa có giờ vào thật; chỉ check-in mới cần chụp ảnh.
+        var isCheckIn = record is null || record.CheckInTime is null;
+        string? photoPath = null;
+        if (isCheckIn)
+        {
+            if (request.Photo is null)
+            {
+                throw new InvalidOperationException("Vui lòng chụp ảnh để check-in.");
+            }
+
+            photoPath = await _photoStorage.SaveAsync(request.Photo, request.PhotoExtension);
+        }
 
         if (record is null)
         {
@@ -55,6 +85,9 @@ public class AttendanceService : IAttendanceService
                 EmployeeId = employee.Id,
                 AttendanceDate = today,
                 CheckInTime = now,
+                CheckInLatitude = request.Latitude,
+                CheckInLongitude = request.Longitude,
+                CheckInPhotoPath = photoPath,
                 Status = await DetermineCheckInStatusAsync(employee.Id, today, now),
                 CreatedAt = now
             };
@@ -65,6 +98,9 @@ public class AttendanceService : IAttendanceService
             // Bản ghi hôm nay đã tồn tại nhưng chưa có check-in thật (vd ngày đang bị đánh dấu
             // Vắng/Nghỉ phép) — coi lần bấm này là check-in thật, không phải check-out.
             record.CheckInTime = now;
+            record.CheckInLatitude = request.Latitude;
+            record.CheckInLongitude = request.Longitude;
+            record.CheckInPhotoPath = photoPath;
             record.CheckOutTime = null;
             record.WorkingHours = null;
             record.Status = await DetermineCheckInStatusAsync(employee.Id, today, now);
@@ -73,8 +109,11 @@ public class AttendanceService : IAttendanceService
         }
         else
         {
-            // Các lần punch sau trong cùng ngày = check-out, đè lên checkout trước đó nếu có.
+            // Các lần punch sau trong cùng ngày = check-out, đè lên checkout trước đó nếu có
+            // (vị trí của lần check-out trước cũng bị thay bằng lần mới nhất). Check-out không lưu ảnh.
             record.CheckOutTime = now;
+            record.CheckOutLatitude = request.Latitude;
+            record.CheckOutLongitude = request.Longitude;
             record.WorkingHours = (decimal)(now - record.CheckInTime.Value).TotalHours;
             record.UpdatedAt = now;
         }
@@ -82,6 +121,27 @@ public class AttendanceService : IAttendanceService
         await _attendanceRepository.SaveChangesAsync();
 
         return ToDto(record, employee);
+    }
+
+    private void ValidateLocation(PunchRequest request)
+    {
+        if (request.Latitude is < -90 or > 90 || request.Longitude is < -180 or > 180)
+        {
+            throw new InvalidOperationException("Toạ độ vị trí không hợp lệ.");
+        }
+
+        if (request.IsMockLocation)
+        {
+            throw new InvalidOperationException("Phát hiện vị trí giả lập. Vui lòng tắt ứng dụng giả vị trí để chấm công.");
+        }
+
+        var distance = GeoDistance.Meters(
+            request.Latitude, request.Longitude, _office.OfficeLatitude, _office.OfficeLongitude);
+        if (distance > _office.AllowedRadiusMeters)
+        {
+            throw new InvalidOperationException(
+                $"Bạn đang cách {_office.OfficeName} khoảng {Math.Round(distance)} m, vượt quá bán kính cho phép {_office.AllowedRadiusMeters:0} m.");
+        }
     }
 
     public async Task<AttendanceStatus> DetermineCheckInStatusAsync(long employeeId, DateOnly date, DateTime checkInTime)
