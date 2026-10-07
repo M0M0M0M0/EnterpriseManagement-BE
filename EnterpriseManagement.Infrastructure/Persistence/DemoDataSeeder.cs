@@ -334,20 +334,8 @@ public static class DemoDataSeeder
             },
             new()
             {
-                EmployeeId = salesA2.Id,
-                LeaveTypeId = leaveTypes["SHORT"].Id,
-                StartDate = today.AddDays(1).ToDateTime(TimeOnly.MinValue),
-                EndDate = today.AddDays(1).ToDateTime(TimeOnly.MinValue),
-                Unit = LeaveUnit.Hours,
-                TotalTime = 2,
-                Reason = "Đi khám bệnh buổi sáng",
-                Status = LeaveRequestStatus.Pending,
-                CreatedAt = now,
-            },
-            new()
-            {
                 EmployeeId = it3.Id,
-                LeaveTypeId = leaveTypes["UNPAID"].Id,
+                LeaveTypeId = leaveTypes["ANNUAL"].Id,
                 StartDate = today.AddDays(-10).ToDateTime(TimeOnly.MinValue),
                 EndDate = today.AddDays(-9).ToDateTime(TimeOnly.MinValue),
                 Session = LeaveSession.FullDay,

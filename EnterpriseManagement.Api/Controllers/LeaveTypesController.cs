@@ -46,4 +46,46 @@ public class LeaveTypesController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+    [HttpPut("{leaveTypeCode}")]
+    [RequirePermission("leavetype.manage")]
+    public async Task<ActionResult<LeaveTypeDto>> Update(string leaveTypeCode, UpdateLeaveTypeRequest request)
+    {
+        try
+        {
+            return Ok(await _leaveTypeService.UpdateAsync(leaveTypeCode, request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{leaveTypeCode}/active")]
+    [RequirePermission("leavetype.manage")]
+    public async Task<ActionResult<LeaveTypeDto>> SetActive(string leaveTypeCode, SetActiveRequest request)
+    {
+        try
+        {
+            return Ok(await _leaveTypeService.SetActiveAsync(leaveTypeCode, request.IsActive));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{leaveTypeCode}")]
+    [RequirePermission("leavetype.manage")]
+    public async Task<IActionResult> Delete(string leaveTypeCode)
+    {
+        try
+        {
+            await _leaveTypeService.DeleteAsync(leaveTypeCode);
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

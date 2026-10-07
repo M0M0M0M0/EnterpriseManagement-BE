@@ -27,28 +27,6 @@ public static class LeaveTypeSeeder
             },
             new LeaveType
             {
-                LeaveTypeCode = "SHORT",
-                LeaveTypeName = "Nghỉ ngắn",
-                AccrualAmount = 2,
-                AccrualUnit = LeaveUnit.Hours,
-                AccrualPeriod = LeaveAccrualPeriod.MonthlyReset,
-                IsPaid = true,
-                Description = "2 giờ mỗi tháng, không cộng dồn qua tháng sau.",
-                IsActive = true
-            },
-            new LeaveType
-            {
-                LeaveTypeCode = "UNPAID",
-                LeaveTypeName = "Nghỉ không lương",
-                AccrualAmount = 2,
-                AccrualUnit = LeaveUnit.Days,
-                AccrualPeriod = LeaveAccrualPeriod.ProratedYearly,
-                IsPaid = false,
-                Description = "2 ngày mỗi tháng, cộng dồn theo số tháng còn lại trong năm kể từ khi tạo hồ sơ.",
-                IsActive = true
-            },
-            new LeaveType
-            {
                 LeaveTypeCode = "REGIME",
                 LeaveTypeName = "Nghỉ chế độ",
                 AccrualAmount = 9,

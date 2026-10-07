@@ -31,6 +31,7 @@ public static class MenuSeeder
         new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
         new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),
         new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 4, "page.admin.positions", "ADMIN"),
+        new("ADMIN_LEAVE_TYPES", "Loại nghỉ phép", "CalendarRegular", "/admin/leave-types", 5, "page.admin.leavetypes", "ADMIN"),
         new("ADMIN_AUDIT", "Audit Log", "HistoryRegular", "/admin/audit", 7, "page.admin.audit", "ADMIN"),
         new("ADMIN_SYSTEM", "System Administration", "SettingsRegular", "/admin/system", 8, "page.admin.system", "ADMIN"),
     };

@@ -26,6 +26,13 @@ public class LeaveTypeRepository : ILeaveTypeRepository
     public async Task AddAsync(LeaveType leaveType) =>
         await _context.LeaveTypes.AddAsync(leaveType);
 
+    public void Remove(LeaveType leaveType) =>
+        _context.LeaveTypes.Remove(leaveType);
+
+    public async Task<bool> IsInUseAsync(long leaveTypeId) =>
+        await _context.LeaveRequests.AnyAsync(r => r.LeaveTypeId == leaveTypeId)
+        || await _context.LeaveBalances.AnyAsync(b => b.LeaveTypeId == leaveTypeId);
+
     public Task<int> SaveChangesAsync() =>
         _context.SaveChangesAsync();
 }
