@@ -25,6 +25,7 @@ public class AttendanceService : IAttendanceService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ILeaveRequestRepository _leaveRequestRepository;
+    private readonly IEffectiveAttendanceService _effective;
     private readonly IAttendancePhotoStorage _photoStorage;
     private readonly AttendanceLocationOptions _office;
 
@@ -33,6 +34,7 @@ public class AttendanceService : IAttendanceService
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
         ILeaveRequestRepository leaveRequestRepository,
+        IEffectiveAttendanceService effective,
         IAttendancePhotoStorage photoStorage,
         AttendanceLocationOptions office)
     {
@@ -40,6 +42,7 @@ public class AttendanceService : IAttendanceService
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _leaveRequestRepository = leaveRequestRepository;
+        _effective = effective;
         _photoStorage = photoStorage;
         _office = office;
     }
@@ -69,6 +72,15 @@ public class AttendanceService : IAttendanceService
         string? photoPath = null;
         if (isCheckIn)
         {
+            // Đang trong buổi nghỉ phép đã duyệt thì không chấm công được: muốn đi làm phải gửi yêu cầu đi làm lại
+            // (Manager duyệt, HR xác nhận nếu cần), để đi làm trong ngày nghỉ luôn có người chịu trách nhiệm xác nhận.
+            var currentSession = now.TimeOfDay < new TimeSpan(12, 0, 0) ? DaySession.Morning : DaySession.Afternoon;
+            if (await _effective.GetSessionStatusAsync(employee.Id, today, currentSession) == SessionStatus.OnLeave)
+            {
+                throw new InvalidOperationException(
+                    "Bạn đang trong thời gian nghỉ phép đã được duyệt nên chưa thể chấm công. Nếu muốn đi làm, hãy gửi yêu cầu đi làm lại.");
+            }
+
             if (request.Photo is null)
             {
                 throw new InvalidOperationException("Vui lòng chụp ảnh để check-in.");
@@ -120,7 +132,8 @@ public class AttendanceService : IAttendanceService
 
         await _attendanceRepository.SaveChangesAsync();
 
-        return ToDto(record, employee);
+        // Trả về trạng thái hiệu lực (tách sáng/chiều) thay vì trạng thái thô của bản ghi vừa lưu.
+        return AttendanceMapper.ToRecordDto(await _effective.GetDayAsync(employee.Id, today), employee);
     }
 
     private void ValidateLocation(PunchRequest request)
@@ -152,8 +165,9 @@ public class AttendanceService : IAttendanceService
         // Đã được duyệt nghỉ buổi sáng -> nghĩa vụ thật của ngày hôm nay chỉ bắt đầu từ chiều,
         // so giờ check-in với giờ chuẩn buổi chiều thay vì buổi sáng (vd checkin 10h55 vẫn tính
         // Present vì còn sớm hơn nhiều so với 13h15, không phải "đến muộn buổi sáng").
-        var hasApprovedMorningLeave = approvedLeavesToday.Any(l =>
-            l.LeaveType.AccrualPeriod != LeaveAccrualPeriod.MonthlyReset && l.Session == LeaveSession.Morning);
+        // Dùng phạm vi nghỉ hiệu lực (đã trừ các buổi đi làm lại), không đọc thẳng đơn nghỉ gốc.
+        var hasApprovedMorningLeave =
+            await _effective.GetSessionStatusAsync(employeeId, date, DaySession.Morning) == SessionStatus.OnLeave;
         if (hasApprovedMorningLeave)
         {
             return checkInTimeOnly <= StandardAfternoonDeadline ? AttendanceStatus.Present : AttendanceStatus.Late;
@@ -186,51 +200,53 @@ public class AttendanceService : IAttendanceService
         return requests.Where(l => l.Status == LeaveRequestStatus.Approved).ToList();
     }
 
-    public async Task ApplyApprovedLeaveAsync(long employeeId, DateOnly startDate, DateOnly endDate, LeaveSession session)
-    {
-        var status = session == LeaveSession.FullDay ? AttendanceStatus.OnLeave : AttendanceStatus.HalfDay;
-        var now = VietnamClock.Now;
-
-        for (var date = startDate; date <= endDate; date = date.AddDays(1))
-        {
-            if (!DateRangeHelper.IsWeekday(date)) continue;
-
-            var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employeeId, date);
-            if (record is not null && record.CheckInTime is not null)
-            {
-                // Ngày này đã có chấm công thật (vd nghỉ nửa buổi, nửa buổi còn lại đã đi làm) —
-                // không ghi đè dữ liệu chấm công thật bằng trạng thái nghỉ phép.
-                continue;
-            }
-
-            if (record is null)
-            {
-                record = new AttendanceRecord
-                {
-                    EmployeeId = employeeId,
-                    AttendanceDate = date,
-                    Status = status,
-                    CreatedAt = now
-                };
-                await _attendanceRepository.AddAsync(record);
-            }
-            else
-            {
-                record.Status = status;
-                record.UpdatedAt = now;
-            }
-        }
-
-        await _attendanceRepository.SaveChangesAsync();
-    }
-
     public async Task<IEnumerable<AttendanceRecordDto>> GetHistoryAsync(string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
-        var records = await _attendanceRepository.GetByEmployeeAsync(employee.Id);
-        return records.Select(r => ToDto(r, employee));
+        // Lịch sử gồm mọi ngày có dữ liệu (chấm công thật, nghỉ phép, ghi chú), đã gộp theo trạng thái hiệu lực.
+        var days = await _effective.GetDaysWithDataAsync(employee.Id);
+        return days.Select(d => AttendanceMapper.ToRecordDto(d, employee));
+    }
+
+    public async Task<IEnumerable<AttendanceCalendarDayDto>> GetCalendarAsync(string employeeCode, DateOnly from, DateOnly to)
+    {
+        if (to < from)
+        {
+            throw new InvalidOperationException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+        }
+
+        if (to.DayNumber - from.DayNumber > 366)
+        {
+            throw new InvalidOperationException("Khoảng ngày tối đa là 366 ngày.");
+        }
+
+        var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
+            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+
+        var days = await _effective.GetRangeAsync(employee.Id, from, to);
+        return days.Select(AttendanceMapper.ToCalendarDto);
+    }
+
+    public async Task<IEnumerable<AttendanceRecordDto>> GetAllAsync(DateOnly startDate, DateOnly endDate, string? departmentCode)
+    {
+        if (endDate < startDate)
+        {
+            throw new InvalidOperationException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+        }
+
+        var employees = (await _employeeRepository.GetAllAsync()).ToList();
+        if (!string.IsNullOrWhiteSpace(departmentCode))
+        {
+            var department = await _departmentRepository.GetByCodeAsync(departmentCode)
+                ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
+            employees = employees.Where(e => e.DepartmentId == department.Id).ToList();
+        }
+
+        var byId = employees.ToDictionary(e => e.Id);
+        var days = await _effective.GetDaysWithDataAsync(byId.Keys.ToList(), startDate, endDate);
+        return days.OrderBy(d => d.Date).ThenBy(d => d.EmployeeId).Select(d => AttendanceMapper.ToRecordDto(d, byId[d.EmployeeId]));
     }
 
     public async Task<IEnumerable<AttendanceRecordDto>> GetByDepartmentAsync(string departmentCode, DateOnly startDate, DateOnly endDate)
@@ -238,18 +254,10 @@ public class AttendanceService : IAttendanceService
         var department = await _departmentRepository.GetByCodeAsync(departmentCode)
             ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
 
-        var records = await _attendanceRepository.GetByDepartmentAndPeriodAsync(department.Id, startDate, endDate);
-        return records.Select(r => ToDto(r, r.Employee));
-    }
+        var employees = (await _employeeRepository.GetAllAsync()).Where(e => e.DepartmentId == department.Id).ToList();
+        var byId = employees.ToDictionary(e => e.Id);
 
-    private static AttendanceRecordDto ToDto(AttendanceRecord record, Employee employee) => new()
-    {
-        EmployeeCode = employee.EmployeeCode,
-        EmployeeName = $"{employee.FirstName} {employee.LastName}",
-        AttendanceDate = record.AttendanceDate,
-        CheckInTime = record.CheckInTime,
-        CheckOutTime = record.CheckOutTime,
-        WorkingHours = record.WorkingHours,
-        Status = record.Status.ToString()
-    };
+        var days = await _effective.GetDaysWithDataAsync(byId.Keys.ToList(), startDate, endDate);
+        return days.OrderBy(d => d.Date).ThenBy(d => d.EmployeeId).Select(d => AttendanceMapper.ToRecordDto(d, byId[d.EmployeeId]));
+    }
 }

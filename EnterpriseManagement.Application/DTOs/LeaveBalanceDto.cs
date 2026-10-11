@@ -10,4 +10,7 @@ public class LeaveBalanceDto
     public decimal AllocatedTime { get; set; }
     public decimal UsedTime { get; set; }
     public decimal RemainingTime { get; set; }
+
+    // Phần phép đã được hoàn do đi làm lại. UsedTime và RemainingTime ở trên là số hiệu lực (đã tính phần hoàn này).
+    public decimal RefundedTime { get; set; }
 }

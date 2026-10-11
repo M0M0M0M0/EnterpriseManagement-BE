@@ -7,5 +7,6 @@ public class ManagerDashboardDto
     public int PendingLeaveRequestsCount { get; set; }
     public int PendingAttendanceAdjustmentsCount { get; set; }
     public int TeamPresentTodayCount { get; set; }
+    public int TeamOnLeaveTodayCount { get; set; }
     public int TeamAbsentTodayCount { get; set; }
 }

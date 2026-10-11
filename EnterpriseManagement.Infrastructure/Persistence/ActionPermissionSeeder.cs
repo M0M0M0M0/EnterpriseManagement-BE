@@ -24,6 +24,11 @@ public static class ActionPermissionSeeder
         new("attendance.adjustment.view", "Xem yêu cầu điều chỉnh công chờ duyệt", "attendance", "Xem danh sách yêu cầu điều chỉnh công đang chờ duyệt.", new[] { "MANAGER" }),
         new("attendance.adjustment.approve", "Duyệt/từ chối điều chỉnh công", "attendance", "Duyệt hoặc từ chối yêu cầu điều chỉnh công.", new[] { "MANAGER" }),
 
+        // Các quyền xử lý chấm công toàn công ty. Không gán cho role nào ngoài ADMIN: Admin tự tạo role (vd HR) rồi tick đúng quyền.
+        new("attendance.view.all", "Xem chấm công toàn công ty", "attendance", "Xem bảng chấm công của mọi nhân viên, lọc theo phòng ban.", new[] { "ADMIN" }),
+        new("attendance.note.manage", "Ghi chú ngoại lệ chấm công", "attendance", "Ghi chú ngoại lệ theo buổi (quên chấm công, đi muộn, vắng...), thu hồi ghi chú và xác nhận yêu cầu đi làm lại.", new[] { "ADMIN" }),
+        new("attendance.adjustment.apply", "Xử lý điều chỉnh công", "attendance", "Áp dụng hoặc từ chối yêu cầu điều chỉnh công sau khi quản lý đã duyệt.", new[] { "ADMIN" }),
+
         // Manager cũng tự chấm công/gửi điều chỉnh công như Employee (xem attendance.punch,
         // attendance.adjustment.self) nên cũng cần tự xin nghỉ phép cho chính mình — thiếu
         // MANAGER ở đây khiến trang "Xin nghỉ phép" của Manager gọi GET /leave-requests/mine bị

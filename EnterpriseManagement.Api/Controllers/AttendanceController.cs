@@ -134,6 +134,42 @@ public class AttendanceController : ControllerBase
         }
     }
 
+    // Trạng thái hiệu lực từng ngày (tách sáng/chiều) trong khoảng, gồm cả cuối tuần và ngày chưa có dữ liệu. Dùng cho lịch.
+    [HttpGet("{employeeCode}/calendar")]
+    public async Task<ActionResult<IEnumerable<AttendanceCalendarDayDto>>> GetCalendar(
+        string employeeCode, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        if (_currentUserService.IsInRole("EMPLOYEE") && employeeCode != _currentUserService.EmployeeCode)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            return Ok(await _attendanceService.GetCalendarAsync(employeeCode, from, to));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Chấm công toàn công ty (tuỳ chọn lọc theo phòng ban) cho người có quyền xem tất cả.
+    [HttpGet("all")]
+    [RequirePermission("attendance.view.all")]
+    public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetAll(
+        [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate, [FromQuery] string? departmentCode)
+    {
+        try
+        {
+            return Ok(await _attendanceService.GetAllAsync(startDate, endDate, departmentCode));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("department/{departmentCode}")]
     [RequirePermission("attendance.view.team")]
     public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetByDepartment(
@@ -161,7 +197,7 @@ public class AttendanceController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
     }
 
@@ -204,6 +240,42 @@ public class AttendanceController : ControllerBase
         {
             var result = await _attendanceAdjustmentService.RejectAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    // Bước 2 (sau khi Manager đã duyệt): người có quyền xử lý áp dụng đúng giờ đề xuất vào dữ liệu chấm công hoặc từ chối.
+    [HttpGet("adjustments/pending-processing")]
+    [RequirePermission("attendance.adjustment.apply")]
+    public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetPendingProcessing()
+    {
+        return Ok(await _attendanceAdjustmentService.GetPendingProcessingAsync());
+    }
+
+    [HttpPut("adjustments/{id}/apply")]
+    [RequirePermission("attendance.adjustment.apply")]
+    public async Task<ActionResult<AttendanceAdjustmentDto>> ApplyAdjustment(long id)
+    {
+        try
+        {
+            return Ok(await _attendanceAdjustmentService.ApplyAsync(id, _currentUserService.EmployeeCode!));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("adjustments/{id}/reject-processing")]
+    [RequirePermission("attendance.adjustment.apply")]
+    public async Task<ActionResult<AttendanceAdjustmentDto>> RejectAdjustmentProcessing(long id, RejectLeaveRequest request)
+    {
+        try
+        {
+            return Ok(await _attendanceAdjustmentService.RejectProcessingAsync(id, _currentUserService.EmployeeCode!, request.RejectionReason));
         }
         catch (InvalidOperationException ex)
         {

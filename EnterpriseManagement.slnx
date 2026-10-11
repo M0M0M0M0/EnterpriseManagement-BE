@@ -7,4 +7,5 @@
   <Project Path="EnterpriseManagement.Application/EnterpriseManagement.Application.csproj" />
   <Project Path="EnterpriseManagement.Domain/EnterpriseManagement.Domain.csproj" />
   <Project Path="EnterpriseManagement.Infrastructure/EnterpriseManagement.Infrastructure.csproj" />
+  <Project Path="EnterpriseManagement.Tests/EnterpriseManagement.Tests.csproj" />
 </Solution>

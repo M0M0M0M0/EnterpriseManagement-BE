@@ -9,4 +9,14 @@ public class AttendanceRecordDto
     public DateTime? CheckOutTime { get; set; }
     public decimal? WorkingHours { get; set; }
     public string Status { get; set; } = string.Empty;
+
+    // Trạng thái hiệu lực tách theo buổi (None, OnTime, Late, Absent, OnLeave) và nguồn của nó; Status ở trên chỉ là
+    // bản tóm tắt cả ngày theo cách gọi cũ.
+    public string MorningStatus { get; set; } = "None";
+    public string AfternoonStatus { get; set; } = "None";
+    public string MorningSource { get; set; } = "None";
+    public string AfternoonSource { get; set; } = "None";
+    public string? LeaveTypeName { get; set; }
+    public string? MorningNote { get; set; }
+    public string? AfternoonNote { get; set; }
 }

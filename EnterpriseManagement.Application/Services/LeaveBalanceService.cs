@@ -12,15 +12,18 @@ public class LeaveBalanceService : ILeaveBalanceService
     private readonly ILeaveBalanceRepository _leaveBalanceRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly ILeaveTypeRepository _leaveTypeRepository;
+    private readonly ILeaveReturnRepository _leaveReturnRepository;
 
     public LeaveBalanceService(
         ILeaveBalanceRepository leaveBalanceRepository,
         IEmployeeRepository employeeRepository,
-        ILeaveTypeRepository leaveTypeRepository)
+        ILeaveTypeRepository leaveTypeRepository,
+        ILeaveReturnRepository leaveReturnRepository)
     {
         _leaveBalanceRepository = leaveBalanceRepository;
         _employeeRepository = employeeRepository;
         _leaveTypeRepository = leaveTypeRepository;
+        _leaveReturnRepository = leaveReturnRepository;
     }
 
     public async Task<IEnumerable<LeaveBalanceDto>> GetByEmployeeAsync(string employeeCode, int year)
@@ -38,7 +41,13 @@ public class LeaveBalanceService : ILeaveBalanceService
             balances.Add(await GetOrCreateAsync(employee, leaveType, targetDate));
         }
 
-        return balances.Select(ToDto);
+        var result = new List<LeaveBalanceDto>();
+        foreach (var balance in balances)
+        {
+            result.Add(await ToDtoAsync(balance));
+        }
+
+        return result;
     }
 
     public async Task<LeaveBalanceDto> SetAllocatedTimeAsync(SetLeaveBalanceRequest request)
@@ -79,7 +88,7 @@ public class LeaveBalanceService : ILeaveBalanceService
         await _leaveBalanceRepository.SaveChangesAsync();
 
         balance.LeaveType = leaveType;
-        return ToDto(balance);
+        return await ToDtoAsync(balance);
     }
 
     public async Task<LeaveBalance> GetOrCreateAsync(Employee employee, LeaveType leaveType, DateTime targetDate)
@@ -136,15 +145,35 @@ public class LeaveBalanceService : ILeaveBalanceService
         }
     }
 
-    private static LeaveBalanceDto ToDto(LeaveBalance balance) => new()
+    // Mỗi buổi đi làm lại đang có hiệu lực của một đơn nghỉ đã duyệt hoàn lại 0,5 ngày, vào đúng số dư mà đơn đó đã bị trừ
+    // (số dư của kỳ chứa ngày bắt đầu đơn). Cùng cách tính thời gian như lúc trừ: cả ngày = 2 buổi = 1 ngày, nửa ngày = 0,5.
+    // Chỉ áp dụng cho loại nghỉ tính theo ngày.
+    public async Task<decimal> GetRefundedTimeAsync(LeaveBalance balance)
     {
-        LeaveTypeCode = balance.LeaveType.LeaveTypeCode,
-        LeaveTypeName = balance.LeaveType.LeaveTypeName,
-        Year = balance.Year,
-        Month = balance.Month,
-        Unit = balance.Unit.ToString(),
-        AllocatedTime = balance.AllocatedTime,
-        UsedTime = balance.UsedTime,
-        RemainingTime = balance.RemainingTime
-    };
+        if (balance.Unit != LeaveUnit.Days) return 0;
+
+        var sessions = await _leaveReturnRepository.GetActiveSessionsAsync(balance.EmployeeId, balance.LeaveTypeId);
+        var count = sessions.Count(s =>
+            s.LeaveRequest.StartDate.Year == balance.Year
+            && (balance.Month is null || s.LeaveRequest.StartDate.Month == balance.Month));
+
+        return count * 0.5m;
+    }
+
+    private async Task<LeaveBalanceDto> ToDtoAsync(LeaveBalance balance)
+    {
+        var refunded = await GetRefundedTimeAsync(balance);
+        return new LeaveBalanceDto
+        {
+            LeaveTypeCode = balance.LeaveType.LeaveTypeCode,
+            LeaveTypeName = balance.LeaveType.LeaveTypeName,
+            Year = balance.Year,
+            Month = balance.Month,
+            Unit = balance.Unit.ToString(),
+            AllocatedTime = balance.AllocatedTime,
+            UsedTime = balance.UsedTime - refunded,
+            RemainingTime = balance.RemainingTime + refunded,
+            RefundedTime = refunded
+        };
+    }
 }

@@ -7,16 +7,16 @@ namespace EnterpriseManagement.Application.Services;
 public class ApprovalDelegationResolver : IApprovalDelegationResolver
 {
     private readonly IEmployeeRepository _employeeRepository;
-    private readonly ILeaveRequestRepository _leaveRequestRepository;
+    private readonly IEffectiveAttendanceService _effective;
     private readonly IAttendanceRepository _attendanceRepository;
 
     public ApprovalDelegationResolver(
         IEmployeeRepository employeeRepository,
-        ILeaveRequestRepository leaveRequestRepository,
+        IEffectiveAttendanceService effective,
         IAttendanceRepository attendanceRepository)
     {
         _employeeRepository = employeeRepository;
-        _leaveRequestRepository = leaveRequestRepository;
+        _effective = effective;
         _attendanceRepository = attendanceRepository;
     }
 
@@ -47,7 +47,8 @@ public class ApprovalDelegationResolver : IApprovalDelegationResolver
     // lý check-in trở lại thì việc duyệt tự động quay về họ ngay mà không cần dọn dẹp gì thêm.
     private async Task<bool> IsDelegatingAsync(Employee manager)
     {
-        var onApprovedLeave = await _leaveRequestRepository.HasApprovedLeaveAtAsync(manager.Id, VietnamClock.Now);
+        // Theo phạm vi nghỉ hiệu lực (đã trừ các buổi đi làm lại), không theo đơn nghỉ gốc.
+        var onApprovedLeave = await _effective.IsOnLeaveNowAsync(manager.Id);
         if (!onApprovedLeave)
         {
             return false;

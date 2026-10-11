@@ -13,7 +13,7 @@ public class LeaveRequestService : ILeaveRequestService
     private readonly ILeaveBalanceService _leaveBalanceService;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
-    private readonly IAttendanceService _attendanceService;
+    private readonly ILeaveReturnRepository _leaveReturnRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
 
@@ -23,7 +23,7 @@ public class LeaveRequestService : ILeaveRequestService
         ILeaveBalanceService leaveBalanceService,
         IEmployeeRepository employeeRepository,
         IApprovalDelegationResolver approvalDelegationResolver,
-        IAttendanceService attendanceService,
+        ILeaveReturnRepository leaveReturnRepository,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
     {
@@ -32,7 +32,7 @@ public class LeaveRequestService : ILeaveRequestService
         _leaveBalanceService = leaveBalanceService;
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
-        _attendanceService = attendanceService;
+        _leaveReturnRepository = leaveReturnRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
     }
@@ -55,6 +55,11 @@ public class LeaveRequestService : ILeaveRequestService
 
         var (startDate, endDate, session, totalTime) = ResolveRequestedTime(leaveType, request, VietnamClock.Now);
 
+        if (totalTime <= 0)
+        {
+            throw new InvalidOperationException("Khoảng thời gian xin nghỉ không có ngày làm việc nào (chỉ gồm thứ Bảy, Chủ nhật).");
+        }
+
         // Chặn nộp đơn trùng thời gian với đơn Pending/Approved đã có của chính nhân viên đó —
         // tránh trường hợp xin nghỉ 2 lần cho cùng 1 khoảng thời gian, duyệt cả 2 sẽ trừ nhầm
         // 2 lần balance cho cùng 1 lần nghỉ thực tế.
@@ -62,21 +67,26 @@ public class LeaveRequestService : ILeaveRequestService
         // ngắn khác). Nghỉ theo buổi/cả ngày chỉ bị chặn khi trùng đơn buổi/cả ngày khác — nếu chỉ
         // trùng với 1 đơn nghỉ ngắn thì coi như "đè" lên nghỉ ngắn đó, vẫn cho nộp bình thường.
         var isShortLeave = leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset;
-        var overlapping = await _leaveRequestRepository.GetActiveByEmployeeAndRangeAsync(employee.Id, startDate, endDate);
+        var overlapping = (await _leaveRequestRepository.GetActiveByEmployeeAndRangeAsync(employee.Id, startDate, endDate)).ToList();
         var blockingOverlap = isShortLeave
             ? overlapping
-            : overlapping.Where(l => l.LeaveType.AccrualPeriod != LeaveAccrualPeriod.MonthlyReset);
-        if (blockingOverlap.Any())
+            : overlapping.Where(l => l.LeaveType.AccrualPeriod != LeaveAccrualPeriod.MonthlyReset).ToList();
+
+        // Với nghỉ theo buổi, chỉ tính trùng khi cùng (ngày, buổi) còn nằm trong phạm vi nghỉ hiệu lực của đơn cũ — các buổi đã
+        // được gỡ bằng yêu cầu đi làm lại không còn bị coi là trùng, nên nhân viên xin nghỉ lại các buổi đó được.
+        if (blockingOverlap.Count > 0 && (isShortLeave || await OverlapsEffectiveCoverageAsync(blockingOverlap, startDate, endDate, session)))
         {
             throw new InvalidOperationException(
                 "Bạn đã có đơn xin nghỉ (đang chờ duyệt hoặc đã duyệt) trùng thời gian với đơn này. Vui lòng kiểm tra lại lịch nghỉ hiện có.");
         }
 
+        // Số dư hiệu lực = số dư lưu + phần phép đã được hoàn do đi làm lại.
         var balance = await _leaveBalanceService.GetOrCreateAsync(employee, leaveType, startDate);
-        if (balance.RemainingTime < totalTime)
+        var effectiveRemaining = balance.RemainingTime + await _leaveBalanceService.GetRefundedTimeAsync(balance);
+        if (effectiveRemaining < totalTime)
         {
             throw new InvalidOperationException(
-                $"Insufficient leave balance: remaining {balance.RemainingTime} {balance.Unit}, requested {totalTime} {leaveType.AccrualUnit}.");
+                $"Insufficient leave balance: remaining {effectiveRemaining} {balance.Unit}, requested {totalTime} {leaveType.AccrualUnit}.");
         }
 
         var leaveRequest = new LeaveRequest
@@ -98,6 +108,38 @@ public class LeaveRequestService : ILeaveRequestService
 
         var created = await _leaveRequestRepository.GetByIdAsync(leaveRequest.Id);
         return ToDto(created!);
+    }
+
+    private async Task<bool> OverlapsEffectiveCoverageAsync(
+        List<LeaveRequest> existing, DateTime start, DateTime end, LeaveSession? session)
+    {
+        // Đơn nghỉ theo giờ (không có buổi) giữ cách kiểm tra cũ: đã trùng khoảng thời gian là trùng.
+        if (session is null || existing.Any(l => l.Session is null)) return true;
+
+        var approvedIds = existing.Where(l => l.Status == LeaveRequestStatus.Approved).Select(l => l.Id).ToList();
+        var returns = approvedIds.Count == 0
+            ? new List<ActiveReturn>()
+            : (await _leaveReturnRepository.GetActiveByLeaveRequestIdsAsync(approvedIds))
+                .Select(r => new ActiveReturn(r.LeaveRequestId, 0, r.Date, r.Session, r.WorkedStatus))
+                .ToList();
+
+        var requested = new HashSet<(DateOnly, DaySession)>();
+        for (var date = DateOnly.FromDateTime(start); date <= DateOnly.FromDateTime(end); date = date.AddDays(1))
+        {
+            if (!DateRangeHelper.IsWeekday(date)) continue;
+            if (session is LeaveSession.FullDay or LeaveSession.Morning) requested.Add((date, DaySession.Morning));
+            if (session is LeaveSession.FullDay or LeaveSession.Afternoon) requested.Add((date, DaySession.Afternoon));
+        }
+
+        foreach (var leave in existing)
+        {
+            var coverage = new LeaveCoverage(
+                leave.Id, leave.EmployeeId, DateOnly.FromDateTime(leave.StartDate), DateOnly.FromDateTime(leave.EndDate),
+                leave.Session!.Value, leave.LeaveType.LeaveTypeName);
+            if (EffectiveDayCalculator.CoveredSessions(coverage, returns).Any(c => requested.Contains(c))) return true;
+        }
+
+        return false;
     }
 
     // Các khung giờ nghỉ ngắn cố định 30 phút, theo giờ hành chính (sáng 8h-12h, chiều
@@ -272,29 +314,30 @@ public class LeaveRequestService : ILeaveRequestService
             throw new InvalidOperationException("Only pending leave requests can be approved.");
         }
 
+        // Kiểm tra lại số dư ngay lúc duyệt: lúc nộp đơn chưa trừ phép nên nhiều đơn chờ duyệt cùng qua được bước kiểm tra,
+        // nếu không kiểm tra lại ở đây thì duyệt hết sẽ làm số dư âm.
+        var balance = await _leaveBalanceService.GetOrCreateAsync(leaveRequest.Employee, leaveRequest.LeaveType, leaveRequest.StartDate);
+        var effectiveRemaining = balance.RemainingTime + await _leaveBalanceService.GetRefundedTimeAsync(balance);
+        if (effectiveRemaining < leaveRequest.TotalTime)
+        {
+            throw new InvalidOperationException(
+                $"Không đủ số dư phép để duyệt đơn này (còn {effectiveRemaining}, đơn xin {leaveRequest.TotalTime}).");
+        }
+
         leaveRequest.Status = LeaveRequestStatus.Approved;
         leaveRequest.ApprovedBy = approver.Id;
         leaveRequest.Approver = approver;
         leaveRequest.ApprovedAt = VietnamClock.Now;
         leaveRequest.UpdatedAt = VietnamClock.Now;
 
-        var balance = await _leaveBalanceService.GetOrCreateAsync(leaveRequest.Employee, leaveRequest.LeaveType, leaveRequest.StartDate);
         balance.UsedTime += leaveRequest.TotalTime;
         balance.RemainingTime -= leaveRequest.TotalTime;
         balance.UpdatedAt = VietnamClock.Now;
 
         await _leaveRequestRepository.SaveChangesAsync();
 
-        // Nghỉ ngắn (Session = null) không đánh dấu cả ngày/nửa buổi nghỉ — chỉ cộng dồn vào
-        // giờ chuẩn check-in lúc chấm công thật (xem AttendanceService.GetApprovedShortLeaveMinutesAsync).
-        if (leaveRequest.Session.HasValue)
-        {
-            await _attendanceService.ApplyApprovedLeaveAsync(
-                leaveRequest.EmployeeId,
-                DateOnly.FromDateTime(leaveRequest.StartDate),
-                DateOnly.FromDateTime(leaveRequest.EndDate),
-                leaveRequest.Session.Value);
-        }
+        // Không còn ghi dòng chấm công "nghỉ phép" giữ chỗ: ngày nghỉ được tính lúc đọc từ chính đơn nghỉ đã duyệt
+        // (xem EffectiveAttendanceService), nên không có nguồn dữ liệu thứ hai để lệch khi đơn bị gỡ bằng yêu cầu đi làm lại.
 
         await LogAsync("Approve", leaveRequest.Id);
         return ToDto(leaveRequest);

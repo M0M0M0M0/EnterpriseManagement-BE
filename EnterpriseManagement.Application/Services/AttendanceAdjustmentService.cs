@@ -13,6 +13,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
     private readonly IAttendanceService _attendanceService;
+    private readonly IEffectiveAttendanceService _effective;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
 
@@ -22,6 +23,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         IEmployeeRepository employeeRepository,
         IApprovalDelegationResolver approvalDelegationResolver,
         IAttendanceService attendanceService,
+        IEffectiveAttendanceService effective,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
     {
@@ -30,6 +32,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         _employeeRepository = employeeRepository;
         _approvalDelegationResolver = approvalDelegationResolver;
         _attendanceService = attendanceService;
+        _effective = effective;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
     }
@@ -41,6 +44,44 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+
+        if (request.AttendanceDate > VietnamClock.Today)
+        {
+            throw new InvalidOperationException("Không thể xin điều chỉnh công cho ngày trong tương lai.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            throw new InvalidOperationException("Vui lòng nhập lý do điều chỉnh công.");
+        }
+
+        if (request.NewCheckInTime is null && request.NewCheckOutTime is null)
+        {
+            throw new InvalidOperationException("Vui lòng nhập ít nhất một giờ vào hoặc giờ ra đề xuất.");
+        }
+
+        if ((request.NewCheckInTime is { } proposedIn && DateOnly.FromDateTime(proposedIn) != request.AttendanceDate)
+            || (request.NewCheckOutTime is { } proposedOut && DateOnly.FromDateTime(proposedOut) != request.AttendanceDate))
+        {
+            throw new InvalidOperationException("Giờ đề xuất phải nằm trong chính ngày cần điều chỉnh.");
+        }
+
+        if (request.NewCheckInTime is { } inTime && request.NewCheckOutTime is { } outTime && outTime <= inTime)
+        {
+            throw new InvalidOperationException("Giờ ra phải sau giờ vào.");
+        }
+
+        if (await _adjustmentRepository.HasOpenAsync(employee.Id, request.AttendanceDate))
+        {
+            throw new InvalidOperationException("Ngày này đã có một yêu cầu điều chỉnh công đang chờ xử lý.");
+        }
+
+        // Cả ngày đang nghỉ phép thì không có giờ làm để điều chỉnh (muốn đi làm phải gửi yêu cầu đi làm lại).
+        var day = await _effective.GetDayAsync(employee.Id, request.AttendanceDate);
+        if (day.Morning == SessionStatus.OnLeave && day.Afternoon == SessionStatus.OnLeave)
+        {
+            throw new InvalidOperationException("Ngày này bạn đang nghỉ phép nên không điều chỉnh công được. Nếu đã đi làm, hãy gửi yêu cầu đi làm lại.");
+        }
 
         var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, request.AttendanceDate);
         if (record is null)
@@ -136,9 +177,33 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             throw new InvalidOperationException("Only pending adjustments can be approved.");
         }
 
-        adjustment.Status = ApprovalStatus.Approved;
+        // Manager xác nhận nhân viên có mặt và đi làm đúng như đề xuất. Bước này KHÔNG sửa dữ liệu chấm công: yêu cầu chuyển
+        // sang người có quyền xử lý (HR), người đó mới áp dụng vào hệ thống (xem ApplyAsync).
+        adjustment.Status = ApprovalStatus.PendingHr;
         adjustment.ApprovedBy = approver.Id;
         adjustment.ApprovedAt = VietnamClock.Now;
+
+        await _adjustmentRepository.SaveChangesAsync();
+        await LogAsync("Approve", adjustment.Id);
+
+        return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
+            $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);
+    }
+
+    public async Task<IEnumerable<AttendanceAdjustmentDto>> GetPendingProcessingAsync()
+    {
+        var adjustments = await _adjustmentRepository.GetPendingHrAsync();
+        return adjustments.Select(a => ToDto(a, a.Attendance.AttendanceDate, a.Requester.EmployeeCode,
+            $"{a.Requester.FirstName} {a.Requester.LastName}", a.Approver));
+    }
+
+    public async Task<AttendanceAdjustmentDto> ApplyAsync(long adjustmentId, string processorEmployeeCode)
+    {
+        var (adjustment, processor) = await GetForProcessingAsync(adjustmentId, processorEmployeeCode);
+
+        adjustment.Status = ApprovalStatus.Approved;
+        adjustment.ProcessedBy = processor.Id;
+        adjustment.ProcessedAt = VietnamClock.Now;
 
         // Cùng 1 DbContext (Scoped) đang theo dõi cả adjustment lẫn adjustment.Attendance,
         // nên SaveChangesAsync() dưới đây commit cả 2 thay đổi trong 1 transaction duy nhất.
@@ -152,10 +217,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
             adjustment.Attendance.CheckOutTime = adjustment.NewCheckOutTime;
         }
 
-        // Tính lại đúng trạng thái theo giờ check-in mới (Present/Late/HalfDayAbsent) bằng chính
-        // logic PunchAsync đang dùng — thay vì chỉ xử lý riêng trường hợp Absent -> Present, vì
-        // giờ check-in sửa lại có thể khiến ngày đó chuyển từ Late/HalfDayAbsent về đúng giờ hoặc
-        // ngược lại.
+        // Tính lại đúng trạng thái theo giờ check-in mới bằng chính logic PunchAsync đang dùng.
         if (adjustment.Attendance.CheckInTime.HasValue)
         {
             adjustment.Attendance.Status = await _attendanceService.DetermineCheckInStatusAsync(
@@ -171,10 +233,49 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         adjustment.Attendance.UpdatedAt = VietnamClock.Now;
 
         await _adjustmentRepository.SaveChangesAsync();
-        await LogAsync("Approve", adjustment.Id);
+        await LogAsync("Apply", adjustment.Id);
 
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
-            $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);
+            $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", adjustment.Approver);
+    }
+
+    public async Task<AttendanceAdjustmentDto> RejectProcessingAsync(long adjustmentId, string processorEmployeeCode, string? reason)
+    {
+        var (adjustment, processor) = await GetForProcessingAsync(adjustmentId, processorEmployeeCode);
+
+        adjustment.Status = ApprovalStatus.Rejected;
+        adjustment.ProcessedBy = processor.Id;
+        adjustment.ProcessedAt = VietnamClock.Now;
+        adjustment.RejectionReason = reason;
+
+        await _adjustmentRepository.SaveChangesAsync();
+        await LogAsync("RejectProcessing", adjustment.Id);
+
+        return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
+            $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", adjustment.Approver);
+    }
+
+    private async Task<(AttendanceAdjustment Adjustment, Domain.Entities.HR.Employee Processor)> GetForProcessingAsync(
+        long adjustmentId, string processorEmployeeCode)
+    {
+        var processor = await _employeeRepository.GetByEmployeeCodeAsync(processorEmployeeCode)
+            ?? throw new InvalidOperationException($"Employee code '{processorEmployeeCode}' not found.");
+
+        var adjustment = await _adjustmentRepository.GetByIdAsync(adjustmentId)
+            ?? throw new InvalidOperationException($"Adjustment {adjustmentId} not found.");
+
+        if (adjustment.Status != ApprovalStatus.PendingHr)
+        {
+            throw new InvalidOperationException("Yêu cầu này không ở trạng thái chờ xử lý (Manager chưa duyệt hoặc đã xử lý rồi).");
+        }
+
+        // Không tự xử lý yêu cầu của chính mình, để người áp dụng luôn là người khác.
+        if (adjustment.RequestedBy == processor.Id)
+        {
+            throw new InvalidOperationException("Bạn không thể xử lý yêu cầu điều chỉnh công của chính mình.");
+        }
+
+        return (adjustment, processor);
     }
 
     public async Task<AttendanceAdjustmentDto> RejectAsync(long adjustmentId, string approverEmployeeCode, bool isAdmin)
@@ -225,6 +326,9 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         NewCheckOutTime = adjustment.NewCheckOutTime,
         Status = adjustment.Status.ToString(),
         ApproverName = approver is null ? null : $"{approver.FirstName} {approver.LastName}",
-        ApprovedAt = adjustment.ApprovedAt
+        ApprovedAt = adjustment.ApprovedAt,
+        ProcessedByName = adjustment.Processor is null ? null : $"{adjustment.Processor.FirstName} {adjustment.Processor.LastName}",
+        ProcessedAt = adjustment.ProcessedAt,
+        RejectionReason = adjustment.RejectionReason
     };
 }

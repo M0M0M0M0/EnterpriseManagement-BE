@@ -28,5 +28,12 @@ public class AttendanceAdjustmentConfiguration : IEntityTypeConfiguration<Attend
             .WithMany()
             .HasForeignKey(x => x.ApprovedBy)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(x => x.RejectionReason).HasMaxLength(500);
+
+        builder.HasOne(x => x.Processor)
+            .WithMany()
+            .HasForeignKey(x => x.ProcessedBy)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

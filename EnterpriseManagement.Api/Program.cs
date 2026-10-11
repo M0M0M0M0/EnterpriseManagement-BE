@@ -70,6 +70,12 @@ var attendancePhotoDirectory = Path.Combine(
     builder.Configuration["Attendance:PhotoDirectory"] ?? "App_Data/attendance-photos");
 builder.Services.AddSingleton<IAttendancePhotoStorage>(new FileSystemAttendancePhotoStorage(attendancePhotoDirectory));
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+builder.Services.AddScoped<IEffectiveAttendanceRepository, EffectiveAttendanceRepository>();
+builder.Services.AddScoped<IEffectiveAttendanceService, EffectiveAttendanceService>();
+builder.Services.AddScoped<IAttendanceNoteRepository, AttendanceNoteRepository>();
+builder.Services.AddScoped<ILeaveReturnRepository, LeaveReturnRepository>();
+builder.Services.AddScoped<ILeaveReturnService, LeaveReturnService>();
+builder.Services.AddScoped<IAttendanceNoteService, AttendanceNoteService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IAttendanceAdjustmentRepository, AttendanceAdjustmentRepository>();
 builder.Services.AddScoped<IAttendanceAdjustmentService, AttendanceAdjustmentService>();

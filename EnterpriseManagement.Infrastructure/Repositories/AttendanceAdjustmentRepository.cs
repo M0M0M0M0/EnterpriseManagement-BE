@@ -19,7 +19,24 @@ public class AttendanceAdjustmentRepository : IAttendanceAdjustmentRepository
         await _context.AttendanceAdjustments
             .Include(a => a.Attendance)
             .Include(a => a.Requester)
+            .Include(a => a.Approver)
+            .Include(a => a.Processor)
             .FirstOrDefaultAsync(a => a.Id == id);
+
+    public async Task<IEnumerable<AttendanceAdjustment>> GetPendingHrAsync() =>
+        await _context.AttendanceAdjustments
+            .Include(a => a.Attendance)
+            .Include(a => a.Requester)
+            .Include(a => a.Approver)
+            .Where(a => a.Status == ApprovalStatus.PendingHr)
+            .OrderBy(a => a.ApprovedAt)
+            .ToListAsync();
+
+    public async Task<bool> HasOpenAsync(long employeeId, DateOnly date) =>
+        await _context.AttendanceAdjustments
+            .AnyAsync(a => a.RequestedBy == employeeId
+                && a.Attendance.AttendanceDate == date
+                && (a.Status == ApprovalStatus.Pending || a.Status == ApprovalStatus.PendingHr));
 
     public async Task<IEnumerable<AttendanceAdjustment>> GetPendingAsync() =>
         await _context.AttendanceAdjustments
@@ -33,6 +50,7 @@ public class AttendanceAdjustmentRepository : IAttendanceAdjustmentRepository
             .Include(a => a.Attendance)
             .Include(a => a.Requester)
             .Include(a => a.Approver)
+            .Include(a => a.Processor)
             .Where(a => a.RequestedBy == employeeId)
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();

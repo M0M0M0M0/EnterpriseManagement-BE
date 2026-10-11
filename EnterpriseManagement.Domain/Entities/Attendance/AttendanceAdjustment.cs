@@ -24,5 +24,11 @@ public class AttendanceAdjustment
     public Employee? Approver { get; set; }
     public DateTime? ApprovedAt { get; set; }
 
+    // Bước 2: người có quyền xử lý (vd HR) áp dụng vào dữ liệu chấm công hoặc từ chối sau khi Manager đã duyệt.
+    public long? ProcessedBy { get; set; }
+    public Employee? Processor { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+    public string? RejectionReason { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }

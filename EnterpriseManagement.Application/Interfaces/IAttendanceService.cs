@@ -11,12 +11,12 @@ public interface IAttendanceService
 
     OfficeLocationDto GetOfficeLocation();
     Task<IEnumerable<AttendanceRecordDto>> GetHistoryAsync(string employeeCode);
+    // Chấm công của toàn công ty trong khoảng ngày, tuỳ chọn lọc theo phòng ban (dành cho người có quyền xem tất cả).
+    Task<IEnumerable<AttendanceRecordDto>> GetAllAsync(DateOnly startDate, DateOnly endDate, string? departmentCode);
     Task<IEnumerable<AttendanceRecordDto>> GetByDepartmentAsync(string departmentCode, DateOnly startDate, DateOnly endDate);
 
-    // Gọi khi 1 đơn xin nghỉ buổi/cả ngày (không phải Nghỉ ngắn) được duyệt — tự đánh dấu
-    // AttendanceRecord của (các) ngày làm việc trong khoảng nghỉ thành OnLeave (Cả ngày) hoặc
-    // HalfDay (nửa buổi), trừ ngày nào đã có chấm công thật thì giữ nguyên.
-    Task ApplyApprovedLeaveAsync(long employeeId, DateOnly startDate, DateOnly endDate, LeaveSession session);
+    // Trạng thái hiệu lực từng ngày (tách sáng/chiều) trong khoảng [from, to], gồm cả cuối tuần và ngày chưa có dữ liệu.
+    Task<IEnumerable<AttendanceCalendarDayDto>> GetCalendarAsync(string employeeCode, DateOnly from, DateOnly to);
 
     // Cùng logic PunchAsync dùng để xác định Present/Late/HalfDayAbsent theo giờ check-in — expose
     // ra để AttendanceAdjustmentService tính lại đúng trạng thái khi duyệt yêu cầu sửa giờ chấm công

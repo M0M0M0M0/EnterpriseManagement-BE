@@ -11,7 +11,7 @@ public class EmployeeService : IEmployeeService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IPositionRepository _positionRepository;
-    private readonly IAttendanceRepository _attendanceRepository;
+    private readonly IEffectiveAttendanceService _effective;
     private readonly IUserRepository _userRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
@@ -20,7 +20,7 @@ public class EmployeeService : IEmployeeService
         IEmployeeRepository employeeRepository,
         IDepartmentRepository departmentRepository,
         IPositionRepository positionRepository,
-        IAttendanceRepository attendanceRepository,
+        IEffectiveAttendanceService effective,
         IUserRepository userRepository,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
@@ -28,7 +28,7 @@ public class EmployeeService : IEmployeeService
         _employeeRepository = employeeRepository;
         _departmentRepository = departmentRepository;
         _positionRepository = positionRepository;
-        _attendanceRepository = attendanceRepository;
+        _effective = effective;
         _userRepository = userRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
@@ -162,7 +162,7 @@ public class EmployeeService : IEmployeeService
     private async Task<OrgTreeNodeDto> BuildOrgTreeNodeAsync(
         Employee employee, Dictionary<long, List<Employee>> childrenByManagerId, DateOnly today)
     {
-        var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
+        var todayDay = await _effective.GetDayAsync(employee.Id, today);
 
         var children = childrenByManagerId.TryGetValue(employee.Id, out var direct) ? direct : new List<Employee>();
         var subordinates = new List<OrgTreeNodeDto>();
@@ -178,7 +178,7 @@ public class EmployeeService : IEmployeeService
             PositionName = employee.Position.PositionName,
             DepartmentName = employee.Department.DepartmentName,
             EmploymentStatus = employee.EmploymentStatus.ToString(),
-            TodayAttendanceStatus = todayRecord?.Status.ToString() ?? "ChuaChamCong",
+            TodayAttendanceStatus = todayDay.OverallStatus == "None" ? "ChuaChamCong" : todayDay.OverallStatus,
             SubordinateCount = children.Count,
             Subordinates = subordinates
         };

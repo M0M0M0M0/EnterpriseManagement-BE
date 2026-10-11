@@ -27,6 +27,11 @@ public static class MenuSeeder
         new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 7, "page.manager.organization", "MANAGER"),
         new("MANAGER_ORG_TREE", "Cây tổ chức", "PeopleTeamRegular", "/manager/org-tree", 9, "page.manager.orgtree", "MANAGER"),
 
+        new("HR_ATTENDANCE", "Chấm công toàn công ty", "ClockRegular", "/hr/attendance", 1, "page.hr.attendance", "ADMIN"),
+        new("HR_ATTENDANCE_NOTES", "Ghi nhận chấm công", "DocumentBulletListRegular", "/hr/attendance-notes", 2, "page.hr.attendance-notes", "ADMIN"),
+        new("HR_ADJUSTMENTS", "Xử lý điều chỉnh công", "DocumentBulletListRegular", "/hr/adjustments", 3, "page.hr.adjustments", "ADMIN"),
+        new("HR_LEAVE_RETURNS", "Xử lý đi làm lại", "CalendarRegular", "/hr/leave-returns", 4, "page.hr.leave-returns", "ADMIN"),
+
         new("ADMIN_USERS", "Tài khoản", "ShieldRegular", "/admin/users", 1, "page.admin.users", "ADMIN"),
         new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
         new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),

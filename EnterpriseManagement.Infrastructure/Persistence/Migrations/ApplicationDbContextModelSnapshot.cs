@@ -54,8 +54,18 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("OldCheckOutTime")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("ProcessedBy")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Reason")
                         .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RejectionReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
@@ -72,6 +82,8 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("ApprovedBy");
 
                     b.HasIndex("AttendanceId");
+
+                    b.HasIndex("ProcessedBy");
 
                     b.HasIndex("RequestedBy");
 
@@ -147,6 +159,60 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.HasIndex("ShiftId");
 
                     b.ToTable("AttendanceRecords", (string)null);
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendanceSessionNote", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("CreatedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<long>("EmployeeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("RevokedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Session")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("RevokedBy");
+
+                    b.HasIndex("EmployeeId", "Date", "Session")
+                        .IsUnique()
+                        .HasFilter("[RevokedAt] IS NULL");
+
+                    b.ToTable("AttendanceSessionNotes", (string)null);
                 });
 
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.WorkShift", b =>
@@ -799,6 +865,108 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("LeaveRequests", (string)null);
                 });
 
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveReturnRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("EmployeeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly>("FromDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("FromSession")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("ManagerApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("ManagerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("ProcessedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ManagerId");
+
+                    b.HasIndex("ProcessedBy");
+
+                    b.HasIndex("EmployeeId", "Status");
+
+                    b.ToTable("LeaveReturnRequests", (string)null);
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveReturnSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<long>("LeaveRequestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ReturnRequestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Session")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("WorkedStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReturnRequestId");
+
+                    b.HasIndex("LeaveRequestId", "Date", "Session");
+
+                    b.ToTable("LeaveReturnSessions", (string)null);
+                });
+
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveType", b =>
                 {
                     b.Property<long>("Id")
@@ -862,6 +1030,11 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Processor")
+                        .WithMany()
+                        .HasForeignKey("ProcessedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Requester")
                         .WithMany()
                         .HasForeignKey("RequestedBy")
@@ -871,6 +1044,8 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Approver");
 
                     b.Navigation("Attendance");
+
+                    b.Navigation("Processor");
 
                     b.Navigation("Requester");
                 });
@@ -891,6 +1066,32 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("Shift");
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendanceSessionNote", b =>
+                {
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Revoker")
+                        .WithMany()
+                        .HasForeignKey("RevokedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Creator");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Revoker");
                 });
 
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Auditing.AuditLog", b =>
@@ -1079,6 +1280,50 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("LeaveType");
                 });
 
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveReturnRequest", b =>
+                {
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Manager")
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Processor")
+                        .WithMany()
+                        .HasForeignKey("ProcessedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Manager");
+
+                    b.Navigation("Processor");
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveReturnSession", b =>
+                {
+                    b.HasOne("EnterpriseManagement.Domain.Entities.Leave.LeaveRequest", "LeaveRequest")
+                        .WithMany()
+                        .HasForeignKey("LeaveRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.Leave.LeaveReturnRequest", "ReturnRequest")
+                        .WithMany("Sessions")
+                        .HasForeignKey("ReturnRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("LeaveRequest");
+
+                    b.Navigation("ReturnRequest");
+                });
+
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendanceRecord", b =>
                 {
                     b.Navigation("Adjustments");
@@ -1125,6 +1370,11 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Identity.User", b =>
                 {
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveReturnRequest", b =>
+                {
+                    b.Navigation("Sessions");
                 });
 #pragma warning restore 612, 618
         }

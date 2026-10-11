@@ -33,11 +33,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<WorkShift> WorkShifts => Set<WorkShift>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<AttendanceAdjustment> AttendanceAdjustments => Set<AttendanceAdjustment>();
+    public DbSet<AttendanceSessionNote> AttendanceSessionNotes => Set<AttendanceSessionNote>();
 
     // Leave
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<LeaveReturnRequest> LeaveReturnRequests => Set<LeaveReturnRequest>();
+    public DbSet<LeaveReturnSession> LeaveReturnSessions => Set<LeaveReturnSession>();
 
     // Auditing
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();

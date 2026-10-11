@@ -8,22 +8,22 @@ namespace EnterpriseManagement.Application.Services;
 public class DashboardService : IDashboardService
 {
     private readonly IEmployeeRepository _employeeRepository;
-    private readonly IAttendanceRepository _attendanceRepository;
+    private readonly IEffectiveAttendanceService _effective;
     private readonly IAttendanceAdjustmentRepository _attendanceAdjustmentRepository;
-    private readonly ILeaveBalanceRepository _leaveBalanceRepository;
+    private readonly ILeaveBalanceService _leaveBalanceService;
     private readonly ILeaveRequestRepository _leaveRequestRepository;
 
     public DashboardService(
         IEmployeeRepository employeeRepository,
-        IAttendanceRepository attendanceRepository,
+        IEffectiveAttendanceService effective,
         IAttendanceAdjustmentRepository attendanceAdjustmentRepository,
-        ILeaveBalanceRepository leaveBalanceRepository,
+        ILeaveBalanceService leaveBalanceService,
         ILeaveRequestRepository leaveRequestRepository)
     {
         _employeeRepository = employeeRepository;
-        _attendanceRepository = attendanceRepository;
+        _effective = effective;
         _attendanceAdjustmentRepository = attendanceAdjustmentRepository;
-        _leaveBalanceRepository = leaveBalanceRepository;
+        _leaveBalanceService = leaveBalanceService;
         _leaveRequestRepository = leaveRequestRepository;
     }
 
@@ -33,31 +33,23 @@ public class DashboardService : IDashboardService
             ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
 
         var today = VietnamClock.Today;
-        var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
+        var todayDay = await _effective.GetDayAsync(employee.Id, today);
 
-        var balances = await _leaveBalanceRepository.GetByEmployeeAndYearAsync(employee.Id, today.Year);
+        // Số dư hiệu lực (đã tính phần phép được hoàn do đi làm lại), không đọc thẳng số dư lưu trong DB.
+        var balances = (await _leaveBalanceService.GetByEmployeeAsync(employeeCode, today.Year)).ToList();
         var pendingLeaves = (await _leaveRequestRepository.GetByEmployeeIdAsync(employee.Id))
             .Count(l => l.Status == LeaveRequestStatus.Pending);
         var pendingAdjustments = (await _attendanceAdjustmentRepository.GetByEmployeeIdAsync(employee.Id))
-            .Count(a => a.Status == ApprovalStatus.Pending);
+            .Count(a => a.Status is ApprovalStatus.Pending or ApprovalStatus.PendingHr);
 
         return new EmployeeDashboardDto
         {
             EmployeeCode = employee.EmployeeCode,
             EmployeeName = $"{employee.FirstName} {employee.LastName}",
-            TodayAttendance = todayRecord is null ? null : new AttendanceRecordDto
-            {
-                EmployeeCode = employee.EmployeeCode,
-                EmployeeName = $"{employee.FirstName} {employee.LastName}",
-                AttendanceDate = todayRecord.AttendanceDate,
-                CheckInTime = todayRecord.CheckInTime,
-                CheckOutTime = todayRecord.CheckOutTime,
-                WorkingHours = todayRecord.WorkingHours,
-                Status = todayRecord.Status.ToString()
-            },
+            TodayAttendance = todayDay.HasData ? AttendanceMapper.ToRecordDto(todayDay, employee) : null,
             // Chỉ cộng các loại nghỉ tính theo ngày; loại tính theo giờ (Nghỉ ngắn) không
             // cùng đơn vị nên không gộp chung vào tổng "ngày phép còn lại" này.
-            TotalRemainingLeaveDays = balances.Where(b => b.Unit == LeaveUnit.Days).Sum(b => b.RemainingTime),
+            TotalRemainingLeaveDays = balances.Where(b => b.Unit == LeaveUnit.Days.ToString()).Sum(b => b.RemainingTime),
             PendingLeaveRequestsCount = pendingLeaves,
             PendingAttendanceAdjustmentsCount = pendingAdjustments
         };
@@ -79,19 +71,20 @@ public class DashboardService : IDashboardService
         var today = VietnamClock.Today;
 
         var presentToday = 0;
+        var onLeaveToday = 0;
         var absentToday = 0;
 
         foreach (var member in team)
         {
-            var todayRecord = await _attendanceRepository.GetByEmployeeAndDateAsync(member.Id, today);
-            if (todayRecord is not null && todayRecord.Status == AttendanceStatus.Present)
-            {
-                presentToday++;
-            }
-            else
-            {
-                absentToday++;
-            }
+            var day = await _effective.GetDayAsync(member.Id, today);
+            var worked = day.Morning is SessionStatus.OnTime or SessionStatus.Late
+                || day.Afternoon is SessionStatus.OnTime or SessionStatus.Late;
+            var fullyOnLeave = day.Morning == SessionStatus.OnLeave && day.Afternoon == SessionStatus.OnLeave;
+
+            // Có mặt = đã có buổi đi làm (kể cả đi muộn); nghỉ phép cả ngày tính riêng; còn lại là chưa có mặt.
+            if (worked) presentToday++;
+            else if (fullyOnLeave) onLeaveToday++;
+            else absentToday++;
         }
 
         return new ManagerDashboardDto
@@ -101,6 +94,7 @@ public class DashboardService : IDashboardService
             PendingLeaveRequestsCount = pendingLeaves,
             PendingAttendanceAdjustmentsCount = pendingAdjustments,
             TeamPresentTodayCount = presentToday,
+            TeamOnLeaveTodayCount = onLeaveToday,
             TeamAbsentTodayCount = absentToday
         };
     }
