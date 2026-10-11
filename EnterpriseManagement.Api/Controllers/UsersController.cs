@@ -39,6 +39,32 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpPut("{username}")]
+    public async Task<ActionResult<UserDto>> Update(string username, UpdateUserRequest request)
+    {
+        try
+        {
+            return Ok(await _userService.UpdateAsync(username, request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("{username}/roles")]
+    public async Task<ActionResult<UserDto>> UpdateRoles(string username, UpdateUserRolesRequest request)
+    {
+        try
+        {
+            return Ok(await _userService.UpdateRolesAsync(username, request.RoleCodes));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPut("{username}/active")]
     public async Task<ActionResult<UserDto>> SetActive(string username, SetActiveRequest request)
     {

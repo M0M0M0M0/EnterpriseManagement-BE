@@ -131,6 +131,135 @@ public class UserService : IUserService
         return users.Select(ToDto);
     }
 
+    public async Task<UserDto> UpdateAsync(string username, UpdateUserRequest request)
+    {
+        var user = await _userRepository.GetByUsernameAsync(username)
+            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+
+        if (request.Email is not null)
+        {
+            var email = request.Email.Trim();
+            if (email.Length == 0 || !email.Contains('@'))
+            {
+                throw new InvalidOperationException("Email không hợp lệ.");
+            }
+
+            var all = await _userRepository.GetAllAsync();
+            if (all.Any(u => u.Id != user.Id && string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException($"Email '{email}' đã được dùng cho tài khoản khác.");
+            }
+
+            user.Email = email;
+        }
+
+        if (request.EmployeeCode is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.EmployeeCode))
+            {
+                user.EmployeeId = null;
+                user.Employee = null;
+            }
+            else
+            {
+                var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
+                    ?? throw new InvalidOperationException($"Employee code '{request.EmployeeCode}' not found.");
+                user.EmployeeId = employee.Id;
+                user.Employee = employee;
+            }
+        }
+
+        if (request.RoleCodes is not null)
+        {
+            await ApplyRolesAsync(user, request.RoleCodes);
+        }
+
+        if (request.IsActive is not null && request.IsActive.Value != user.IsActive)
+        {
+            if (!request.IsActive.Value)
+            {
+                await EnsureNotLockingOutAsync(user, removingAdminRole: false, deactivating: true);
+            }
+
+            user.IsActive = request.IsActive.Value;
+        }
+
+        await _userRepository.SaveChangesAsync();
+        await LogAsync("Update", user.Id);
+
+        var updated = await _userRepository.GetByUsernameAsync(username);
+        return ToDto(updated!);
+    }
+
+    public async Task<UserDto> UpdateRolesAsync(string username, IReadOnlyCollection<string> roleCodes)
+    {
+        var user = await _userRepository.GetByUsernameAsync(username)
+            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+
+        await ApplyRolesAsync(user, roleCodes);
+
+        await _userRepository.SaveChangesAsync();
+        await LogAsync("UpdateRoles", user.Id);
+
+        var updated = await _userRepository.GetByUsernameAsync(username);
+        return ToDto(updated!);
+    }
+
+    // Đặt đúng tập vai trò mới cho tài khoản (thêm cái chưa có, bỏ cái không còn). Luôn phải có ít nhất một vai trò.
+    private async Task ApplyRolesAsync(User user, IReadOnlyCollection<string> roleCodes)
+    {
+        var wanted = roleCodes.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct().ToList();
+        if (wanted.Count == 0)
+        {
+            throw new InvalidOperationException("Tài khoản phải có ít nhất một vai trò.");
+        }
+
+        var roles = new List<Domain.Entities.Identity.Role>();
+        foreach (var code in wanted)
+        {
+            roles.Add(await _roleRepository.GetByCodeAsync(code)
+                ?? throw new InvalidOperationException($"Role code '{code}' not found."));
+        }
+
+        var removingAdmin = user.UserRoles.Any(ur => ur.Role.RoleCode == "ADMIN") && wanted.All(c => c != "ADMIN");
+        if (removingAdmin)
+        {
+            await EnsureNotLockingOutAsync(user, removingAdminRole: true, deactivating: false);
+        }
+
+        foreach (var existing in user.UserRoles.Where(ur => wanted.All(c => c != ur.Role.RoleCode)).ToList())
+        {
+            _userRepository.RemoveUserRole(existing);
+            user.UserRoles.Remove(existing);
+        }
+
+        foreach (var role in roles.Where(r => user.UserRoles.All(ur => ur.RoleId != r.Id)))
+        {
+            user.UserRoles.Add(new UserRole { UserId = user.Id, Role = role, RoleId = role.Id, AssignedAt = VietnamClock.Now });
+        }
+    }
+
+    // Không cho tự khoá mình khỏi hệ thống, và luôn phải còn ít nhất một tài khoản ADMIN đang hoạt động khác.
+    private async Task EnsureNotLockingOutAsync(User target, bool removingAdminRole, bool deactivating)
+    {
+        var isAdmin = target.UserRoles.Any(ur => ur.Role.RoleCode == "ADMIN");
+        if (!isAdmin) return;
+
+        if (string.Equals(target.Username, _currentUserService.Username, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(removingAdminRole
+                ? "Bạn không thể tự gỡ vai trò ADMIN của chính mình."
+                : "Bạn không thể tự khoá tài khoản của chính mình.");
+        }
+
+        var all = await _userRepository.GetAllAsync();
+        var otherActiveAdmins = all.Count(u => u.Id != target.Id && u.IsActive && u.UserRoles.Any(ur => ur.Role.RoleCode == "ADMIN"));
+        if (otherActiveAdmins == 0)
+        {
+            throw new InvalidOperationException("Không thể thực hiện vì đây là tài khoản ADMIN hoạt động cuối cùng.");
+        }
+    }
+
     public async Task<CreateUserResult> ResetPasswordAsync(string username)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
@@ -178,6 +307,11 @@ public class UserService : IUserService
     {
         var user = await _userRepository.GetByUsernameAsync(username)
             ?? throw new InvalidOperationException($"Username '{username}' not found.");
+
+        if (!isActive && user.IsActive)
+        {
+            await EnsureNotLockingOutAsync(user, removingAdminRole: false, deactivating: true);
+        }
 
         user.IsActive = isActive;
         user.UpdatedAt = VietnamClock.Now;

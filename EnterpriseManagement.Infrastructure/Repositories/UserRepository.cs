@@ -33,6 +33,9 @@ public class UserRepository : IUserRepository
     public async Task AddAsync(User user) =>
         await _context.Users.AddAsync(user);
 
+    public void RemoveUserRole(UserRole userRole) =>
+        _context.UserRoles.Remove(userRole);
+
     public Task<int> SaveChangesAsync() =>
         _context.SaveChangesAsync();
 }
