@@ -229,3 +229,27 @@ tra:
    docker compose up -d
    ```
    rồi đợi như bước 2 và chạy lại migration.
+
+## Cấu hình vai trò HR (chấm công, ghi chú, đi làm lại)
+
+Hệ thống **không có role HR cố định trong code**. Các chức năng HR là menu và permission; Admin tự tạo role rồi gán quyền:
+
+1. Đăng nhập `admin` → **System Administration → Vai trò** → tạo role mới (tên tuỳ ý, ví dụ `HR`).
+2. Gán cho role các permission:
+   - `attendance.view.all`: xem chấm công toàn công ty
+   - `attendance.note.manage`: ghi chú ngoại lệ chấm công và xác nhận yêu cầu đi làm lại
+   - `attendance.adjustment.apply`: áp dụng điều chỉnh công sau khi Manager đã duyệt
+   - `employee.view.all`: để chọn nhân viên trong màn hình ghi chú
+   - Permission trang (hiện menu): `page.hr.attendance`, `page.hr.attendance-notes`, `page.hr.adjustments`, `page.hr.leave-returns`
+3. **Tài khoản → Sửa** tài khoản của nhân sự (hoặc tạo tài khoản mới với role vừa tạo) để gán role. Vai trò mới có hiệu lực ở lần đăng nhập kế tiếp.
+
+Tài khoản HR phải gắn với một hồ sơ nhân viên (để hệ thống biết ai đang xử lý). Người dùng không được xử lý yêu cầu hay ghi chú về chính mình.
+
+Luồng điều chỉnh công: nhân viên gửi → Manager trực tiếp duyệt (xác nhận có mặt) → người có quyền `attendance.adjustment.apply` áp dụng.
+Luồng đi làm lại: nhân viên chọn ngày và buổi → Manager duyệt → buổi chưa bắt đầu có hiệu lực ngay, buổi đã bắt đầu chờ người có quyền `attendance.note.manage` xác nhận.
+
+## Chạy kiểm thử đơn vị
+
+```bash
+dotnet test EnterpriseManagement.Tests
+```
