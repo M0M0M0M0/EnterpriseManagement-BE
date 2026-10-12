@@ -16,6 +16,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     private readonly IEffectiveAttendanceService _effective;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly INotificationService _notificationService;
 
     public AttendanceAdjustmentService(
         IAttendanceAdjustmentRepository adjustmentRepository,
@@ -25,7 +26,8 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         IAttendanceService attendanceService,
         IEffectiveAttendanceService effective,
         IAuditLogService auditLogService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        INotificationService notificationService)
     {
         _adjustmentRepository = adjustmentRepository;
         _attendanceRepository = attendanceRepository;
@@ -35,6 +37,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         _effective = effective;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _notificationService = notificationService;
     }
 
     private Task LogAsync(string action, long? entityId) =>
@@ -114,6 +117,11 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         await _adjustmentRepository.AddAsync(adjustment);
         await _adjustmentRepository.SaveChangesAsync();
 
+        await _notificationService.NotifyApproverAsync(
+            employee, "AdjustmentSubmitted", "Có yêu cầu điều chỉnh công mới",
+            $"{NotificationText.Name(employee)} xin điều chỉnh công ngày {record.AttendanceDate:dd/MM/yyyy}.",
+            "/manager/attendance", adjustment.Id);
+
         return ToDto(adjustment, record.AttendanceDate, employee.EmployeeCode, $"{employee.FirstName} {employee.LastName}");
     }
 
@@ -186,6 +194,15 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         await _adjustmentRepository.SaveChangesAsync();
         await LogAsync("Approve", adjustment.Id);
 
+        await _notificationService.NotifyAsync(
+            adjustment.RequestedBy, "AdjustmentManagerApproved", "Quản lý đã xác nhận điều chỉnh công",
+            $"Yêu cầu điều chỉnh công ngày {adjustment.Attendance.AttendanceDate:dd/MM/yyyy} đã được quản lý xác nhận, đang chờ nhân sự áp dụng.",
+            "/employee/attendance", adjustment.Id);
+        await _notificationService.NotifyPermissionHoldersAsync(
+            "attendance.adjustment.apply", adjustment.RequestedBy, "AdjustmentAwaitingProcessing", "Có yêu cầu điều chỉnh công chờ xử lý",
+            $"Yêu cầu điều chỉnh công ngày {adjustment.Attendance.AttendanceDate:dd/MM/yyyy} của {NotificationText.Name(adjustment.Requester)} đã được quản lý xác nhận.",
+            "/hr/adjustments", adjustment.Id);
+
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);
     }
@@ -235,6 +252,11 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         await _adjustmentRepository.SaveChangesAsync();
         await LogAsync("Apply", adjustment.Id);
 
+        await _notificationService.NotifyAsync(
+            adjustment.RequestedBy, "AdjustmentApplied", "Điều chỉnh công đã được áp dụng",
+            $"Giờ chấm công ngày {adjustment.Attendance.AttendanceDate:dd/MM/yyyy} của bạn đã được điều chỉnh.",
+            "/employee/attendance", adjustment.Id);
+
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", adjustment.Approver);
     }
@@ -250,6 +272,12 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
 
         await _adjustmentRepository.SaveChangesAsync();
         await LogAsync("RejectProcessing", adjustment.Id);
+
+        await _notificationService.NotifyAsync(
+            adjustment.RequestedBy, "AdjustmentRejected", "Yêu cầu điều chỉnh công bị từ chối",
+            $"Nhân sự đã từ chối yêu cầu điều chỉnh công ngày {adjustment.Attendance.AttendanceDate:dd/MM/yyyy} của bạn."
+            + (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Lý do: {reason}"),
+            "/employee/attendance", adjustment.Id);
 
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", adjustment.Approver);
@@ -306,6 +334,11 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
 
         await _adjustmentRepository.SaveChangesAsync();
         await LogAsync("Reject", adjustment.Id);
+
+        await _notificationService.NotifyAsync(
+            adjustment.RequestedBy, "AdjustmentRejected", "Yêu cầu điều chỉnh công bị từ chối",
+            $"Yêu cầu điều chỉnh công ngày {adjustment.Attendance.AttendanceDate:dd/MM/yyyy} của bạn bị quản lý từ chối.",
+            "/employee/attendance", adjustment.Id);
 
         return ToDto(adjustment, adjustment.Attendance.AttendanceDate, adjustment.Requester.EmployeeCode,
             $"{adjustment.Requester.FirstName} {adjustment.Requester.LastName}", approver);

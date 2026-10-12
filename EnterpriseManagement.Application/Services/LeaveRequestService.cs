@@ -16,6 +16,7 @@ public class LeaveRequestService : ILeaveRequestService
     private readonly ILeaveReturnRepository _leaveReturnRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly INotificationService _notificationService;
 
     public LeaveRequestService(
         ILeaveRequestRepository leaveRequestRepository,
@@ -25,7 +26,8 @@ public class LeaveRequestService : ILeaveRequestService
         IApprovalDelegationResolver approvalDelegationResolver,
         ILeaveReturnRepository leaveReturnRepository,
         IAuditLogService auditLogService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        INotificationService notificationService)
     {
         _leaveRequestRepository = leaveRequestRepository;
         _leaveTypeRepository = leaveTypeRepository;
@@ -35,6 +37,7 @@ public class LeaveRequestService : ILeaveRequestService
         _leaveReturnRepository = leaveReturnRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _notificationService = notificationService;
     }
 
     private Task LogAsync(string action, long? entityId) =>
@@ -107,6 +110,12 @@ public class LeaveRequestService : ILeaveRequestService
         await _leaveRequestRepository.SaveChangesAsync();
 
         var created = await _leaveRequestRepository.GetByIdAsync(leaveRequest.Id);
+
+        await _notificationService.NotifyApproverAsync(
+            employee, "LeaveSubmitted", "Có đơn xin nghỉ phép mới",
+            $"{NotificationText.Name(employee)} xin {leaveType.LeaveTypeName.ToLowerInvariant()} {NotificationText.Range(startDate, endDate)}.",
+            "/manager/leave", leaveRequest.Id);
+
         return ToDto(created!);
     }
 
@@ -340,6 +349,11 @@ public class LeaveRequestService : ILeaveRequestService
         // (xem EffectiveAttendanceService), nên không có nguồn dữ liệu thứ hai để lệch khi đơn bị gỡ bằng yêu cầu đi làm lại.
 
         await LogAsync("Approve", leaveRequest.Id);
+
+        await _notificationService.NotifyAsync(
+            leaveRequest.EmployeeId, "LeaveApproved", "Đơn xin nghỉ phép đã được duyệt",
+            $"Đơn {leaveRequest.LeaveType.LeaveTypeName.ToLowerInvariant()} {NotificationText.Range(leaveRequest.StartDate, leaveRequest.EndDate)} của bạn đã được {NotificationText.Name(approver)} duyệt.",
+            "/employee/leave", leaveRequest.Id);
         return ToDto(leaveRequest);
     }
 
@@ -374,6 +388,12 @@ public class LeaveRequestService : ILeaveRequestService
 
         await _leaveRequestRepository.SaveChangesAsync();
         await LogAsync("Reject", leaveRequest.Id);
+
+        await _notificationService.NotifyAsync(
+            leaveRequest.EmployeeId, "LeaveRejected", "Đơn xin nghỉ phép bị từ chối",
+            $"Đơn {leaveRequest.LeaveType.LeaveTypeName.ToLowerInvariant()} {NotificationText.Range(leaveRequest.StartDate, leaveRequest.EndDate)} của bạn bị từ chối."
+            + (string.IsNullOrWhiteSpace(rejectionReason) ? string.Empty : $" Lý do: {rejectionReason}"),
+            "/employee/leave", leaveRequest.Id);
 
         return ToDto(leaveRequest);
     }

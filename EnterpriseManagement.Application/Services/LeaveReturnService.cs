@@ -22,6 +22,7 @@ public class LeaveReturnService : ILeaveReturnService
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly INotificationService _notificationService;
 
     public LeaveReturnService(
         ILeaveReturnRepository repository,
@@ -29,7 +30,8 @@ public class LeaveReturnService : ILeaveReturnService
         IEffectiveAttendanceRepository effectiveRepository,
         IApprovalDelegationResolver approvalDelegationResolver,
         IAuditLogService auditLogService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        INotificationService notificationService)
     {
         _repository = repository;
         _employeeRepository = employeeRepository;
@@ -37,6 +39,7 @@ public class LeaveReturnService : ILeaveReturnService
         _approvalDelegationResolver = approvalDelegationResolver;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _notificationService = notificationService;
     }
 
     private Task LogAsync(string action, long entityId) =>
@@ -101,6 +104,11 @@ public class LeaveReturnService : ILeaveReturnService
         await _repository.SaveChangesAsync();
         await LogAsync("Submit", entity.Id);
 
+        await _notificationService.NotifyApproverAsync(
+            employee, "ReturnSubmitted", "Có yêu cầu đi làm lại mới",
+            $"{NotificationText.Name(employee)} xin đi làm lại từ {NotificationText.Session(session)} {request.FromDate:dd/MM/yyyy}.",
+            "/manager/leave", entity.Id);
+
         return ToDto((await _repository.GetByIdAsync(entity.Id))!);
     }
 
@@ -152,6 +160,22 @@ public class LeaveReturnService : ILeaveReturnService
 
         await _repository.SaveChangesAsync();
         await LogAsync("Approve", request.Id);
+
+        var awaitingHr = request.Status == ReturnRequestStatus.PendingHr;
+        await _notificationService.NotifyAsync(
+            request.EmployeeId, "ReturnApproved", "Yêu cầu đi làm lại đã được duyệt",
+            awaitingHr
+                ? "Quản lý đã duyệt. Các buổi đã bắt đầu đang chờ nhân sự xác nhận bạn đã đi làm."
+                : "Quản lý đã duyệt. Các buổi đi làm lại đã được gỡ khỏi nghỉ phép và phép được hoàn lại.",
+            "/employee/leave", request.Id);
+
+        if (awaitingHr)
+        {
+            await _notificationService.NotifyPermissionHoldersAsync(
+                "attendance.note.manage", request.EmployeeId, "ReturnAwaitingProcessing", "Có yêu cầu đi làm lại chờ xác nhận",
+                $"{NotificationText.Name(request.Employee)} đã được quản lý duyệt đi làm lại, cần xác nhận các buổi đã bắt đầu.",
+                "/hr/leave-returns", request.Id);
+        }
         return ToDto(request);
     }
 
@@ -170,6 +194,11 @@ public class LeaveReturnService : ILeaveReturnService
 
         await _repository.SaveChangesAsync();
         await LogAsync("Reject", request.Id);
+
+        await _notificationService.NotifyAsync(
+            request.EmployeeId, "ReturnRejected", "Yêu cầu đi làm lại bị từ chối",
+            "Quản lý đã từ chối yêu cầu đi làm lại của bạn." + (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Lý do: {reason}"),
+            "/employee/leave", request.Id);
         return ToDto(request);
     }
 
@@ -212,6 +241,10 @@ public class LeaveReturnService : ILeaveReturnService
 
         await _repository.SaveChangesAsync();
         await LogAsync("Process", entity.Id);
+
+        await _notificationService.NotifyAsync(
+            entity.EmployeeId, "ReturnProcessed", "Nhân sự đã xác nhận bạn đi làm",
+            "Các buổi đi làm lại của bạn đã được xác nhận, phép đã được hoàn lại.", "/employee/leave", entity.Id);
         return ToDto(entity);
     }
 
@@ -236,6 +269,12 @@ public class LeaveReturnService : ILeaveReturnService
 
         await _repository.SaveChangesAsync();
         await LogAsync("RejectProcessing", entity.Id);
+
+        await _notificationService.NotifyAsync(
+            entity.EmployeeId, "ReturnRejected", "Yêu cầu đi làm lại bị từ chối xác nhận",
+            "Nhân sự không xác nhận các buổi đã bắt đầu, những buổi đó vẫn tính là nghỉ phép."
+            + (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Lý do: {reason}"),
+            "/employee/leave", entity.Id);
         return ToDto(entity);
     }
 

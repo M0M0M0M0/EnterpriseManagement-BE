@@ -4,3 +4,7 @@ obj/
 *.csproj.user
 # Anh cham cong (du lieu ca nhan) khong dua len git
 App_Data/
+
+# Khoá tài khoản dịch vụ Firebase (bí mật, không đưa lên Git)
+firebase-service-account*.json
+*firebase-adminsdk*.json

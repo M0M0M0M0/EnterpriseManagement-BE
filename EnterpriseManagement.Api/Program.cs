@@ -8,6 +8,8 @@ using EnterpriseManagement.Infrastructure.Persistence;
 using EnterpriseManagement.Infrastructure.Repositories;
 using EnterpriseManagement.Infrastructure.Security;
 using EnterpriseManagement.Infrastructure.Storage;
+using EnterpriseManagement.Infrastructure.Push;
+using EnterpriseManagement.Api.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -87,6 +89,20 @@ builder.Services.AddScoped<ILeaveBalanceService, LeaveBalanceService>();
 builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
+// Thông báo: hộp thông báo trong DB + thông báo đẩy Firebase (tự tắt nếu chưa có file khoá tài khoản dịch vụ).
+var remindersOptions = builder.Configuration.GetSection(RemindersOptions.SectionName).Get<RemindersOptions>() ?? new RemindersOptions();
+builder.Services.AddSingleton(remindersOptions);
+var firebaseCredentialsPath = builder.Configuration["Firebase:CredentialsPath"];
+if (!string.IsNullOrWhiteSpace(firebaseCredentialsPath) && !Path.IsPathRooted(firebaseCredentialsPath))
+{
+    firebaseCredentialsPath = Path.Combine(builder.Environment.ContentRootPath, firebaseCredentialsPath);
+}
+builder.Services.AddSingleton<IPushSender>(sp => new FirebasePushSender(firebaseCredentialsPath, sp.GetRequiredService<ILogger<FirebasePushSender>>()));
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IAttendanceReminderService, AttendanceReminderService>();
+builder.Services.AddHostedService<AttendanceReminderWorker>();
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
 builder.Services.AddControllers();

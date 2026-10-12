@@ -17,19 +17,22 @@ public class AttendanceNoteService : IAttendanceNoteService
     private readonly IEffectiveAttendanceService _effective;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly INotificationService _notificationService;
 
     public AttendanceNoteService(
         IAttendanceNoteRepository repository,
         IEmployeeRepository employeeRepository,
         IEffectiveAttendanceService effective,
         IAuditLogService auditLogService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        INotificationService notificationService)
     {
         _repository = repository;
         _employeeRepository = employeeRepository;
         _effective = effective;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _notificationService = notificationService;
     }
 
     private Task LogAsync(string action, long entityId) =>
@@ -150,6 +153,11 @@ public class AttendanceNoteService : IAttendanceNoteService
 
         await _repository.SaveChangesAsync();
         foreach (var note in created) await LogAsync("Create", note.Id);
+
+        await _notificationService.NotifyAsync(
+            employee.Id, "AttendanceNoteCreated", "Nhân sự đã ghi nhận chấm công cho bạn",
+            $"{NotificationText.Range(request.StartDate, request.EndDate)} ({NotificationText.Session(leaveSession)}): {NotificationText.Status(status)}. Ghi chú: {request.Note.Trim()}",
+            "/employee/attendance", created.First().Id);
 
         return created.Select(n => ToDto(n, employee, creator));
     }

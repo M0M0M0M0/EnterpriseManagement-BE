@@ -4,6 +4,7 @@ using EnterpriseManagement.Domain.Entities.Auditing;
 using EnterpriseManagement.Domain.Entities.HR;
 using EnterpriseManagement.Domain.Entities.Identity;
 using EnterpriseManagement.Domain.Entities.Leave;
+using EnterpriseManagement.Domain.Entities.Notifications;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManagement.Infrastructure.Persistence;
@@ -44,6 +45,9 @@ public class ApplicationDbContext : DbContext
 
     // Auditing
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<AppNotification> Notifications => Set<AppNotification>();
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
