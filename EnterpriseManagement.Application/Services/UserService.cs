@@ -76,6 +76,19 @@ public class UserService : IUserService
 
     public async Task<CreateUserResult> CreateAsync(CreateUserRequest request)
     {
+        request.Username = (request.Username ?? string.Empty).Trim();
+        request.Email = (request.Email ?? string.Empty).Trim();
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(request.Username, "^[A-Za-z0-9._-]{3,50}$"))
+        {
+            throw new InvalidOperationException("Tên đăng nhập gồm 3-50 ký tự chữ, số, dấu chấm, gạch dưới hoặc gạch ngang (không dấu, không dấu cách).");
+        }
+
+        if (!IsValidEmail(request.Email))
+        {
+            throw new InvalidOperationException("Email không hợp lệ.");
+        }
+
         var existing = await _userRepository.GetByUsernameAsync(request.Username);
         if (existing is not null)
         {
@@ -123,6 +136,20 @@ public class UserService : IUserService
             User = ToDto(created!),
             GeneratedPassword = generatedPassword
         };
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        if (email.Length == 0 || email.Length > 254) return false;
+        try
+        {
+            var parsed = new System.Net.Mail.MailAddress(email);
+            return parsed.Address == email && parsed.Host.Contains('.');
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     public async Task<IEnumerable<UserDto>> GetAllAsync()

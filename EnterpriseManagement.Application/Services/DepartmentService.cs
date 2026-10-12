@@ -8,13 +8,18 @@ namespace EnterpriseManagement.Application.Services;
 public class DepartmentService : IDepartmentService
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
 
     public DepartmentService(
-        IDepartmentRepository departmentRepository, IAuditLogService auditLogService, ICurrentUserService currentUserService)
+        IDepartmentRepository departmentRepository,
+        IEmployeeRepository employeeRepository,
+        IAuditLogService auditLogService,
+        ICurrentUserService currentUserService)
     {
         _departmentRepository = departmentRepository;
+        _employeeRepository = employeeRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
     }
@@ -65,15 +70,50 @@ public class DepartmentService : IDepartmentService
         var department = await _departmentRepository.GetByCodeAsync(departmentCode)
             ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{departmentCode}'.");
 
-        department.DepartmentName = request.DepartmentName;
-        department.ManagerId = request.ManagerId;
+        if (string.IsNullOrWhiteSpace(request.DepartmentName))
+        {
+            throw new InvalidOperationException("Tên phòng ban không được để trống.");
+        }
+
+        // Đổi mã phòng ban: nhân viên gắn với phòng ban theo id nên đổi mã không làm mất dữ liệu, chỉ cần không trùng mã khác.
+        var newCode = request.DepartmentCode?.Trim();
+        if (!string.IsNullOrEmpty(newCode) && newCode != department.DepartmentCode)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(newCode, "^[A-Za-z0-9_-]{2,20}$"))
+            {
+                throw new InvalidOperationException("Mã phòng ban gồm 2-20 ký tự chữ, số, gạch dưới hoặc gạch ngang (không dấu, không dấu cách).");
+            }
+
+            if (await _departmentRepository.GetByCodeAsync(newCode) is not null)
+            {
+                throw new InvalidOperationException($"Mã phòng ban '{newCode}' đã tồn tại.");
+            }
+
+            department.DepartmentCode = newCode;
+        }
+
+        if (request.ManagerCode is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.ManagerCode))
+            {
+                department.ManagerId = null;
+            }
+            else
+            {
+                var manager = await _employeeRepository.GetByEmployeeCodeAsync(request.ManagerCode)
+                    ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.ManagerCode}'.");
+                department.ManagerId = manager.Id;
+            }
+        }
+
+        department.DepartmentName = request.DepartmentName.Trim();
         department.Description = request.Description;
         department.UpdatedAt = VietnamClock.Now;
 
         await _departmentRepository.SaveChangesAsync();
         await LogAsync("Update", department.Id);
 
-        var updated = await _departmentRepository.GetByCodeAsync(departmentCode);
+        var updated = await _departmentRepository.GetByCodeAsync(department.DepartmentCode);
         return ToDto(updated!);
     }
 
@@ -95,6 +135,7 @@ public class DepartmentService : IDepartmentService
     {
         DepartmentCode = department.DepartmentCode,
         DepartmentName = department.DepartmentName,
+        ManagerCode = department.Manager?.EmployeeCode,
         ManagerName = department.Manager is null ? null : $"{department.Manager.FirstName} {department.Manager.LastName}",
         Description = department.Description,
         IsActive = department.IsActive

@@ -40,6 +40,12 @@ public class AuditLogService : IAuditLogService
         }
     }
 
+    public async Task<AuditLogFilterOptionsDto> GetFilterOptionsAsync() => new()
+    {
+        Modules = await _auditLogRepository.GetDistinctModulesAsync(),
+        Actions = await _auditLogRepository.GetDistinctActionsAsync()
+    };
+
     public async Task<IEnumerable<AuditLogDto>> GetFilteredAsync(string? username, string? module, string? action, DateOnly? date)
     {
         var logs = await _auditLogRepository.GetFilteredAsync(username, module, action, date);

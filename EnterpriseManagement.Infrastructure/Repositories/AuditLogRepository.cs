@@ -20,6 +20,12 @@ public class AuditLogRepository : IAuditLogRepository
     public Task<int> SaveChangesAsync() =>
         _context.SaveChangesAsync();
 
+    public async Task<List<string>> GetDistinctModulesAsync() =>
+        await _context.AuditLogs.Select(x => x.EntityName).Distinct().OrderBy(x => x).ToListAsync();
+
+    public async Task<List<string>> GetDistinctActionsAsync() =>
+        await _context.AuditLogs.Select(x => x.Action).Distinct().OrderBy(x => x).ToListAsync();
+
     public async Task<IEnumerable<AuditLog>> GetFilteredAsync(string? username, string? module, string? action, DateOnly? date)
     {
         var query = _context.AuditLogs.Include(x => x.User).AsQueryable();

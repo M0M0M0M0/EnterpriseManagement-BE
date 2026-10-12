@@ -8,5 +8,7 @@ public interface IAuditLogService
     // nên không throw, xem AuditLogService.LogAsync.
     Task LogAsync(long? userId, string action, string module, long? entityId = null, string? ipAddress = null);
 
+    Task<AuditLogFilterOptionsDto> GetFilterOptionsAsync();
+
     Task<IEnumerable<AuditLogDto>> GetFilteredAsync(string? username, string? module, string? action, DateOnly? date);
 }

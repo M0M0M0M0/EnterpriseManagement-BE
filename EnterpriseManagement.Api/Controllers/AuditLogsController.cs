@@ -18,6 +18,12 @@ public class AuditLogsController : ControllerBase
         _auditLogService = auditLogService;
     }
 
+    // Danh sách Module và Action đang có trong nhật ký, cho ô chọn ở màn hình lọc.
+    [HttpGet("filters")]
+    [RequirePermission("audit.view")]
+    public async Task<ActionResult<AuditLogFilterOptionsDto>> GetFilterOptions() =>
+        Ok(await _auditLogService.GetFilterOptionsAsync());
+
     [HttpGet]
     [RequirePermission("audit.view")]
     public async Task<ActionResult<IEnumerable<AuditLogDto>>> GetAll(
