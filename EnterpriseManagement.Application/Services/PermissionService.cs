@@ -33,7 +33,7 @@ public class PermissionService : IPermissionService
         var existing = await _permissionRepository.GetByCodeAsync(request.PermissionCode);
         if (existing is not null)
         {
-            throw new InvalidOperationException($"Permission code '{request.PermissionCode}' already exists.");
+            throw new InvalidOperationException($"Mã quyền '{request.PermissionCode}' đã tồn tại.");
         }
 
         var permission = new Permission
@@ -57,7 +57,7 @@ public class PermissionService : IPermissionService
     public async Task<PermissionDto> UpdateAsync(string permissionCode, UpdatePermissionRequest request)
     {
         var permission = await _permissionRepository.GetByCodeAsync(permissionCode)
-            ?? throw new InvalidOperationException($"Permission code '{permissionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy quyền có mã '{permissionCode}'.");
 
         permission.PermissionName = request.PermissionName;
         permission.Module = request.Module;
@@ -72,7 +72,7 @@ public class PermissionService : IPermissionService
     public async Task<PermissionDto> SetActiveAsync(string permissionCode, bool isActive)
     {
         var permission = await _permissionRepository.GetByCodeAsync(permissionCode)
-            ?? throw new InvalidOperationException($"Permission code '{permissionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy quyền có mã '{permissionCode}'.");
 
         permission.IsActive = isActive;
 

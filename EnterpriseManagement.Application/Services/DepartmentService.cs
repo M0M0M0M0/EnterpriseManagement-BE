@@ -39,7 +39,7 @@ public class DepartmentService : IDepartmentService
         var existing = await _departmentRepository.GetByCodeAsync(request.DepartmentCode);
         if (existing is not null)
         {
-            throw new InvalidOperationException($"Department code '{request.DepartmentCode}' already exists.");
+            throw new InvalidOperationException($"Mã phòng ban '{request.DepartmentCode}' đã tồn tại.");
         }
 
         var department = new Department
@@ -63,7 +63,7 @@ public class DepartmentService : IDepartmentService
     public async Task<DepartmentDto> UpdateAsync(string departmentCode, UpdateDepartmentRequest request)
     {
         var department = await _departmentRepository.GetByCodeAsync(departmentCode)
-            ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{departmentCode}'.");
 
         department.DepartmentName = request.DepartmentName;
         department.ManagerId = request.ManagerId;
@@ -80,7 +80,7 @@ public class DepartmentService : IDepartmentService
     public async Task<DepartmentDto> SetActiveAsync(string departmentCode, bool isActive)
     {
         var department = await _departmentRepository.GetByCodeAsync(departmentCode)
-            ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{departmentCode}'.");
 
         department.IsActive = isActive;
         department.UpdatedAt = VietnamClock.Now;

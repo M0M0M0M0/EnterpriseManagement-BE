@@ -43,10 +43,10 @@ public class LeaveRequestService : ILeaveRequestService
     public async Task<LeaveRequestDto> SubmitAsync(SubmitLeaveRequest request, string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
-            ?? throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy loại nghỉ có mã '{request.LeaveTypeCode}'.");
 
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
@@ -86,7 +86,7 @@ public class LeaveRequestService : ILeaveRequestService
         if (effectiveRemaining < totalTime)
         {
             throw new InvalidOperationException(
-                $"Insufficient leave balance: remaining {effectiveRemaining} {balance.Unit}, requested {totalTime} {leaveType.AccrualUnit}.");
+                $"Không đủ số dư phép: còn {effectiveRemaining} {balance.Unit}, đơn xin {totalTime} {leaveType.AccrualUnit}.");
         }
 
         var leaveRequest = new LeaveRequest
@@ -224,7 +224,7 @@ public class LeaveRequestService : ILeaveRequestService
     public async Task<IEnumerable<LeaveRequestDto>> GetByEmployeeAsync(string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         var requests = await _leaveRequestRepository.GetByEmployeeIdAsync(employee.Id);
         return requests.Select(ToDto);
@@ -233,16 +233,16 @@ public class LeaveRequestService : ILeaveRequestService
     public async Task<LeaveRequestDto> CancelAsync(long leaveRequestId, string employeeCode)
     {
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
-            ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy đơn nghỉ phép {leaveRequestId}.");
 
         if (leaveRequest.Employee.EmployeeCode != employeeCode)
         {
-            throw new InvalidOperationException("Only the employee who submitted this leave request can cancel it.");
+            throw new InvalidOperationException("Chỉ nhân viên đã gửi đơn nghỉ phép này mới được huỷ.");
         }
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending leave requests can be cancelled.");
+            throw new InvalidOperationException("Chỉ có thể huỷ đơn nghỉ phép đang chờ duyệt.");
         }
 
         leaveRequest.Status = LeaveRequestStatus.Cancelled;
@@ -277,7 +277,7 @@ public class LeaveRequestService : ILeaveRequestService
         }
 
         var requester = await _employeeRepository.GetByEmployeeCodeAsync(requesterEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{requesterEmployeeCode}'.");
 
         var result = new List<LeaveRequestDto>();
         foreach (var r in requests)
@@ -295,10 +295,10 @@ public class LeaveRequestService : ILeaveRequestService
     public async Task<LeaveRequestDto> ApproveAsync(long leaveRequestId, string approverEmployeeCode, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{approverEmployeeCode}'.");
 
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
-            ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy đơn nghỉ phép {leaveRequestId}.");
 
         if (!isAdmin)
         {
@@ -311,7 +311,7 @@ public class LeaveRequestService : ILeaveRequestService
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending leave requests can be approved.");
+            throw new InvalidOperationException("Chỉ có thể duyệt đơn nghỉ phép đang chờ duyệt.");
         }
 
         // Kiểm tra lại số dư ngay lúc duyệt: lúc nộp đơn chưa trừ phép nên nhiều đơn chờ duyệt cùng qua được bước kiểm tra,
@@ -346,10 +346,10 @@ public class LeaveRequestService : ILeaveRequestService
     public async Task<LeaveRequestDto> RejectAsync(long leaveRequestId, string approverEmployeeCode, string? rejectionReason, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{approverEmployeeCode}'.");
 
         var leaveRequest = await _leaveRequestRepository.GetByIdAsync(leaveRequestId)
-            ?? throw new InvalidOperationException($"Leave request {leaveRequestId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy đơn nghỉ phép {leaveRequestId}.");
 
         if (!isAdmin)
         {
@@ -362,7 +362,7 @@ public class LeaveRequestService : ILeaveRequestService
 
         if (leaveRequest.Status != LeaveRequestStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending leave requests can be rejected.");
+            throw new InvalidOperationException("Chỉ có thể từ chối đơn nghỉ phép đang chờ duyệt.");
         }
 
         leaveRequest.Status = LeaveRequestStatus.Rejected;

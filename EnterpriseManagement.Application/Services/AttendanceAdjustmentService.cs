@@ -43,7 +43,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     public async Task<AttendanceAdjustmentDto> SubmitAsync(SubmitAdjustmentRequest request, string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         if (request.AttendanceDate > VietnamClock.Today)
         {
@@ -127,7 +127,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         }
 
         var requester = await _employeeRepository.GetByEmployeeCodeAsync(requesterEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{requesterEmployeeCode}'.");
 
         var result = new List<AttendanceAdjustmentDto>();
         foreach (var a in adjustments)
@@ -148,7 +148,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     public async Task<IEnumerable<AttendanceAdjustmentDto>> GetByEmployeeAsync(string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         var adjustments = await _adjustmentRepository.GetByEmployeeIdAsync(employee.Id);
         return adjustments.Select(a => ToDto(a, a.Attendance.AttendanceDate, employee.EmployeeCode,
@@ -158,10 +158,10 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     public async Task<AttendanceAdjustmentDto> ApproveAsync(long adjustmentId, string approverEmployeeCode, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{approverEmployeeCode}'.");
 
         var adjustment = await _adjustmentRepository.GetByIdAsync(adjustmentId)
-            ?? throw new InvalidOperationException($"Adjustment {adjustmentId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy yêu cầu điều chỉnh công {adjustmentId}.");
 
         if (!isAdmin)
         {
@@ -174,7 +174,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
 
         if (adjustment.Status != ApprovalStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending adjustments can be approved.");
+            throw new InvalidOperationException("Chỉ có thể duyệt yêu cầu điều chỉnh công đang chờ xử lý.");
         }
 
         // Manager xác nhận nhân viên có mặt và đi làm đúng như đề xuất. Bước này KHÔNG sửa dữ liệu chấm công: yêu cầu chuyển
@@ -259,10 +259,10 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         long adjustmentId, string processorEmployeeCode)
     {
         var processor = await _employeeRepository.GetByEmployeeCodeAsync(processorEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{processorEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{processorEmployeeCode}'.");
 
         var adjustment = await _adjustmentRepository.GetByIdAsync(adjustmentId)
-            ?? throw new InvalidOperationException($"Adjustment {adjustmentId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy yêu cầu điều chỉnh công {adjustmentId}.");
 
         if (adjustment.Status != ApprovalStatus.PendingHr)
         {
@@ -281,10 +281,10 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     public async Task<AttendanceAdjustmentDto> RejectAsync(long adjustmentId, string approverEmployeeCode, bool isAdmin)
     {
         var approver = await _employeeRepository.GetByEmployeeCodeAsync(approverEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{approverEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{approverEmployeeCode}'.");
 
         var adjustment = await _adjustmentRepository.GetByIdAsync(adjustmentId)
-            ?? throw new InvalidOperationException($"Adjustment {adjustmentId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy yêu cầu điều chỉnh công {adjustmentId}.");
 
         if (!isAdmin)
         {
@@ -297,7 +297,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
 
         if (adjustment.Status != ApprovalStatus.Pending)
         {
-            throw new InvalidOperationException("Only pending adjustments can be rejected.");
+            throw new InvalidOperationException("Chỉ có thể từ chối yêu cầu điều chỉnh công đang chờ xử lý.");
         }
 
         adjustment.Status = ApprovalStatus.Rejected;

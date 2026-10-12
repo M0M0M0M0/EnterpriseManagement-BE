@@ -30,7 +30,7 @@ public class DashboardService : IDashboardService
     public async Task<EmployeeDashboardDto> GetEmployeeDashboardAsync(string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         var today = VietnamClock.Today;
         var todayDay = await _effective.GetDayAsync(employee.Id, today);
@@ -58,7 +58,7 @@ public class DashboardService : IDashboardService
     public async Task<ManagerDashboardDto> GetManagerDashboardAsync(string managerEmployeeCode)
     {
         var manager = await _employeeRepository.GetByEmployeeCodeAsync(managerEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{managerEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerEmployeeCode}'.");
 
         var team = (await _employeeRepository.GetByManagerIdAsync(manager.Id)).ToList();
         var teamIds = team.Select(e => e.Id).ToHashSet();

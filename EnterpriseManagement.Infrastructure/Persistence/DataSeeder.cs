@@ -12,11 +12,29 @@ public static class DataSeeder
         if (!await context.Roles.AnyAsync())
         {
             context.Roles.AddRange(
-                new Role { RoleCode = "ADMIN", RoleName = "Administrator", IsActive = true, CreatedAt = VietnamClock.Now },
-                new Role { RoleCode = "MANAGER", RoleName = "Manager", IsActive = true, CreatedAt = VietnamClock.Now },
-                new Role { RoleCode = "EMPLOYEE", RoleName = "Employee", IsActive = true, CreatedAt = VietnamClock.Now });
+                new Role { RoleCode = "ADMIN", RoleName = "Quản trị viên", IsActive = true, CreatedAt = VietnamClock.Now },
+                new Role { RoleCode = "MANAGER", RoleName = "Quản lý", IsActive = true, CreatedAt = VietnamClock.Now },
+                new Role { RoleCode = "EMPLOYEE", RoleName = "Nhân viên", IsActive = true, CreatedAt = VietnamClock.Now });
             await context.SaveChangesAsync();
         }
+
+        // Việt hoá tên vai trò seed cũ (DB đã chạy từ trước): chỉ đổi khi tên còn đúng bản tiếng Anh mặc định.
+        var roleRenames = new Dictionary<string, (string Old, string New)>
+        {
+            ["ADMIN"] = ("Administrator", "Quản trị viên"),
+            ["MANAGER"] = ("Manager", "Quản lý"),
+            ["EMPLOYEE"] = ("Employee", "Nhân viên"),
+        };
+        var renamed = false;
+        foreach (var role in (await context.Roles.ToListAsync()).Where(r => roleRenames.ContainsKey(r.RoleCode)))
+        {
+            var (oldName, newName) = roleRenames[role.RoleCode];
+            if (role.RoleName != oldName) continue;
+            role.RoleName = newName;
+            role.UpdatedAt = VietnamClock.Now;
+            renamed = true;
+        }
+        if (renamed) await context.SaveChangesAsync();
 
         if (!await context.Users.AnyAsync())
         {

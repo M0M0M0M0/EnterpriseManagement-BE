@@ -28,7 +28,7 @@ public class ApprovalDelegationResolver : IApprovalDelegationResolver
         }
 
         var current = await _employeeRepository.GetByIdAsync(employee.ManagerId.Value)
-            ?? throw new InvalidOperationException($"Manager {employee.ManagerId} not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy quản lý có ID {employee.ManagerId}.");
 
         // Đi lên tiếp khi người hiện tại đang vắng mặt VÀ còn quản lý cấp trên để đẩy tới —
         // top-level (không có ManagerId) thì dừng lại tại đó dù có đang nghỉ, vì không còn ai
@@ -36,7 +36,7 @@ public class ApprovalDelegationResolver : IApprovalDelegationResolver
         while (current.ManagerId is not null && await IsDelegatingAsync(current))
         {
             current = await _employeeRepository.GetByIdAsync(current.ManagerId.Value)
-                ?? throw new InvalidOperationException($"Manager {current.ManagerId} not found.");
+                ?? throw new InvalidOperationException($"Không tìm thấy quản lý có ID {current.ManagerId}.");
         }
 
         return current;

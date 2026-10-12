@@ -16,11 +16,11 @@ public static class MenuSeeder
 
     private static readonly MenuSeed[] Seeds =
     {
-        new("EMPLOYEE_DASHBOARD", "Dashboard", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
+        new("EMPLOYEE_DASHBOARD", "Tổng quan", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
         new("EMPLOYEE_ATTENDANCE", "Chấm công", "ClockRegular", "/employee/attendance", 2, "page.employee.attendance", "EMPLOYEE"),
         new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 3, "page.employee.leave", "EMPLOYEE"),
 
-        new("MANAGER_DASHBOARD", "Dashboard tổng quan", "HomeRegular", "/manager/dashboard", 1, "page.manager.dashboard", "MANAGER"),
+        new("MANAGER_DASHBOARD", "Tổng quan phòng ban", "HomeRegular", "/manager/dashboard", 1, "page.manager.dashboard", "MANAGER"),
         new("MANAGER_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/manager/employees", 2, "page.manager.employees", "MANAGER"),
         new("MANAGER_ATTENDANCE", "Quản lý chấm công", "ClockRegular", "/manager/attendance", 3, "page.manager.attendance", "MANAGER"),
         new("MANAGER_LEAVE", "Duyệt đơn xin nghỉ", "DocumentBulletListRegular", "/manager/leave", 4, "page.manager.leave", "MANAGER"),
@@ -37,8 +37,8 @@ public static class MenuSeeder
         new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),
         new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 4, "page.admin.positions", "ADMIN"),
         new("ADMIN_LEAVE_TYPES", "Loại nghỉ phép", "CalendarRegular", "/admin/leave-types", 5, "page.admin.leavetypes", "ADMIN"),
-        new("ADMIN_AUDIT", "Audit Log", "HistoryRegular", "/admin/audit", 7, "page.admin.audit", "ADMIN"),
-        new("ADMIN_SYSTEM", "System Administration", "SettingsRegular", "/admin/system", 8, "page.admin.system", "ADMIN"),
+        new("ADMIN_AUDIT", "Nhật ký hệ thống", "HistoryRegular", "/admin/audit", 7, "page.admin.audit", "ADMIN"),
+        new("ADMIN_SYSTEM", "Quản trị hệ thống", "SettingsRegular", "/admin/system", 8, "page.admin.system", "ADMIN"),
     };
 
     // Idempotent: chỉ chèn những MenuCode chưa tồn tại, để khi thêm seed mới (vd MANAGER_AUDIT)
@@ -55,6 +55,7 @@ public static class MenuSeeder
         await MergeManagerAuditMenuAsync(context, now);
         await SplitAdminOrganizationMenuAsync(context);
         await RenameAdminUsersMenuAsync(context, now);
+        await RenameEnglishSeedMenusAsync(context, now);
 
         var existingMenuCodes = (await context.Menus.Select(m => m.MenuCode).ToListAsync()).ToHashSet();
         var missingSeeds = Seeds.Where(s => !existingMenuCodes.Contains(s.MenuCode)).ToList();
@@ -226,6 +227,51 @@ public static class MenuSeeder
         menu.MenuName = "Tài khoản";
         menu.UpdatedAt = now;
         await context.SaveChangesAsync();
+    }
+
+    // Việt hoá tên menu seed cũ còn là tiếng Anh/lẫn Anh-Việt (vd "Dashboard", "Audit Log",
+    // "System Administration"). Seeder chỉ chèn MenuCode còn thiếu nên DB đã chạy từ trước vẫn
+    // giữ tên cũ; đổi 1 lần ở đây, CHỈ khi tên hiện tại còn đúng bằng tên mặc định cũ để không
+    // ghi đè tên Admin đã tự đặt. Permission "page.*" đi kèm (tên + mô tả sinh từ tên menu)
+    // cũng được đồng bộ theo cùng điều kiện.
+    private static readonly (string MenuCode, string PermissionCode, string OldName, string NewName)[] EnglishMenuRenames =
+    {
+        ("EMPLOYEE_DASHBOARD", "page.employee.dashboard", "Dashboard", "Tổng quan"),
+        ("MANAGER_DASHBOARD", "page.manager.dashboard", "Dashboard tổng quan", "Tổng quan phòng ban"),
+        ("ADMIN_AUDIT", "page.admin.audit", "Audit Log", "Nhật ký hệ thống"),
+        ("ADMIN_SYSTEM", "page.admin.system", "System Administration", "Quản trị hệ thống"),
+    };
+
+    private static async Task RenameEnglishSeedMenusAsync(ApplicationDbContext context, DateTime now)
+    {
+        var changed = false;
+        foreach (var (menuCode, permissionCode, oldName, newName) in EnglishMenuRenames)
+        {
+            var menu = await context.Menus.FirstOrDefaultAsync(m => m.MenuCode == menuCode);
+            if (menu is not null && menu.MenuName == oldName)
+            {
+                menu.MenuName = newName;
+                menu.UpdatedAt = now;
+                changed = true;
+            }
+
+            var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == permissionCode);
+            if (permission is null) continue;
+
+            if (permission.PermissionName == oldName)
+            {
+                permission.PermissionName = newName;
+                changed = true;
+            }
+
+            if (permission.Description == $"Quyền vào trang '{oldName}'.")
+            {
+                permission.Description = $"Quyền vào trang '{newName}'.";
+                changed = true;
+            }
+        }
+
+        if (changed) await context.SaveChangesAsync();
     }
 
     // "Phòng ban & chức vụ" (ADMIN_ORGANIZATION) tách thành 2 menu riêng — ADMIN_DEPARTMENTS

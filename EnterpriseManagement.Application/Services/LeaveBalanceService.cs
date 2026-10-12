@@ -29,7 +29,7 @@ public class LeaveBalanceService : ILeaveBalanceService
     public async Task<IEnumerable<LeaveBalanceDto>> GetByEmployeeAsync(string employeeCode, int year)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         var leaveTypes = (await _leaveTypeRepository.GetAllAsync()).Where(lt => lt.IsActive);
         var now = VietnamClock.Now;
@@ -53,10 +53,10 @@ public class LeaveBalanceService : ILeaveBalanceService
     public async Task<LeaveBalanceDto> SetAllocatedTimeAsync(SetLeaveBalanceRequest request)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{request.EmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.EmployeeCode}'.");
 
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
-            ?? throw new InvalidOperationException($"Leave type code '{request.LeaveTypeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy loại nghỉ có mã '{request.LeaveTypeCode}'.");
 
         var month = leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset ? request.Month : null;
 

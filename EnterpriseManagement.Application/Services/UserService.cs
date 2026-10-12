@@ -39,16 +39,16 @@ public class UserService : IUserService
     public async Task<LoginResult> LoginAsync(LoginRequest request)
     {
         var user = await _userRepository.GetByUsernameAsync(request.Username)
-            ?? throw new InvalidOperationException("Invalid username or password.");
+            ?? throw new InvalidOperationException("Tên đăng nhập hoặc mật khẩu không đúng.");
 
         if (!user.IsActive)
         {
-            throw new InvalidOperationException("This account has been locked.");
+            throw new InvalidOperationException("Tài khoản này đã bị khoá.");
         }
 
         if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            throw new InvalidOperationException("Invalid username or password.");
+            throw new InvalidOperationException("Tên đăng nhập hoặc mật khẩu không đúng.");
         }
 
         user.LastLoginAt = VietnamClock.Now;
@@ -79,14 +79,14 @@ public class UserService : IUserService
         var existing = await _userRepository.GetByUsernameAsync(request.Username);
         if (existing is not null)
         {
-            throw new InvalidOperationException($"Username '{request.Username}' already exists.");
+            throw new InvalidOperationException($"Tên đăng nhập '{request.Username}' đã tồn tại.");
         }
 
         long? employeeId = null;
         if (!string.IsNullOrWhiteSpace(request.EmployeeCode))
         {
             var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
-                ?? throw new InvalidOperationException($"Employee code '{request.EmployeeCode}' not found.");
+                ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.EmployeeCode}'.");
             employeeId = employee.Id;
         }
 
@@ -98,7 +98,7 @@ public class UserService : IUserService
         }
 
         var role = await _roleRepository.GetByCodeAsync(request.RoleCode)
-            ?? throw new InvalidOperationException($"Role code '{request.RoleCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy vai trò có mã '{request.RoleCode}'.");
 
         var generatedPassword = RandomCodeGenerator.Generate(10);
 
@@ -134,7 +134,7 @@ public class UserService : IUserService
     public async Task<UserDto> UpdateAsync(string username, UpdateUserRequest request)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
-            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy tên đăng nhập '{username}'.");
 
         if (request.Email is not null)
         {
@@ -163,7 +163,7 @@ public class UserService : IUserService
             else
             {
                 var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
-                    ?? throw new InvalidOperationException($"Employee code '{request.EmployeeCode}' not found.");
+                    ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.EmployeeCode}'.");
                 user.EmployeeId = employee.Id;
                 user.Employee = employee;
             }
@@ -194,7 +194,7 @@ public class UserService : IUserService
     public async Task<UserDto> UpdateRolesAsync(string username, IReadOnlyCollection<string> roleCodes)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
-            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy tên đăng nhập '{username}'.");
 
         await ApplyRolesAsync(user, roleCodes);
 
@@ -218,7 +218,7 @@ public class UserService : IUserService
         foreach (var code in wanted)
         {
             roles.Add(await _roleRepository.GetByCodeAsync(code)
-                ?? throw new InvalidOperationException($"Role code '{code}' not found."));
+                ?? throw new InvalidOperationException($"Không tìm thấy vai trò có mã '{code}'."));
         }
 
         var removingAdmin = user.UserRoles.Any(ur => ur.Role.RoleCode == "ADMIN") && wanted.All(c => c != "ADMIN");
@@ -263,7 +263,7 @@ public class UserService : IUserService
     public async Task<CreateUserResult> ResetPasswordAsync(string username)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
-            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy tên đăng nhập '{username}'.");
 
         var generatedPassword = RandomCodeGenerator.Generate(10);
         user.PasswordHash = _passwordHasher.Hash(generatedPassword);
@@ -281,7 +281,7 @@ public class UserService : IUserService
     public async Task ChangePasswordAsync(string username, string currentPassword, string newPassword)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
-            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy tên đăng nhập '{username}'.");
 
         if (!_passwordHasher.Verify(currentPassword, user.PasswordHash))
         {
@@ -306,7 +306,7 @@ public class UserService : IUserService
     public async Task<UserDto> SetActiveAsync(string username, bool isActive)
     {
         var user = await _userRepository.GetByUsernameAsync(username)
-            ?? throw new InvalidOperationException($"Username '{username}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy tên đăng nhập '{username}'.");
 
         if (!isActive && user.IsActive)
         {

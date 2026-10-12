@@ -52,9 +52,9 @@ public class EmployeeService : IEmployeeService
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeRequest request)
     {
         var department = await _departmentRepository.GetByCodeAsync(request.DepartmentCode)
-            ?? throw new InvalidOperationException($"Department code '{request.DepartmentCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{request.DepartmentCode}'.");
         var position = await _positionRepository.GetByCodeAsync(request.PositionCode)
-            ?? throw new InvalidOperationException($"Position code '{request.PositionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{request.PositionCode}'.");
         var manager = await ResolveManagerAsync(request.ManagerCode);
 
         var employee = new Employee
@@ -86,7 +86,7 @@ public class EmployeeService : IEmployeeService
     public async Task<IEnumerable<EmployeeDto>> GetTeamAsync(string managerEmployeeCode)
     {
         var manager = await _employeeRepository.GetByEmployeeCodeAsync(managerEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{managerEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerEmployeeCode}'.");
 
         var team = await _employeeRepository.GetByManagerIdAsync(manager.Id);
         return team.Select(ToDto);
@@ -98,7 +98,7 @@ public class EmployeeService : IEmployeeService
     public async Task<IEnumerable<EmployeeDto>> GetTeamRecursiveAsync(string managerEmployeeCode)
     {
         var manager = await _employeeRepository.GetByEmployeeCodeAsync(managerEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{managerEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerEmployeeCode}'.");
 
         var allEmployees = (await _employeeRepository.GetAllAsync()).ToList();
         var childrenByManagerId = allEmployees
@@ -145,7 +145,7 @@ public class EmployeeService : IEmployeeService
         else
         {
             var requester = allEmployees.FirstOrDefault(e => e.EmployeeCode == requesterEmployeeCode)
-                ?? throw new InvalidOperationException($"Employee code '{requesterEmployeeCode}' not found.");
+                ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{requesterEmployeeCode}'.");
             roots = childrenByManagerId.TryGetValue(requester.Id, out var direct) ? direct : new List<Employee>();
         }
 
@@ -187,11 +187,11 @@ public class EmployeeService : IEmployeeService
     public async Task<EmployeeDto> UpdateAsync(string employeeCode, UpdateEmployeeRequest request)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
         var department = await _departmentRepository.GetByCodeAsync(request.DepartmentCode)
-            ?? throw new InvalidOperationException($"Department code '{request.DepartmentCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{request.DepartmentCode}'.");
         var position = await _positionRepository.GetByCodeAsync(request.PositionCode)
-            ?? throw new InvalidOperationException($"Position code '{request.PositionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{request.PositionCode}'.");
         var manager = await ResolveManagerAsync(request.ManagerCode);
 
         if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
@@ -219,13 +219,13 @@ public class EmployeeService : IEmployeeService
     {
         if (string.IsNullOrWhiteSpace(managerCode)) return null;
         return await _employeeRepository.GetByEmployeeCodeAsync(managerCode)
-            ?? throw new InvalidOperationException($"Employee code '{managerCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerCode}'.");
     }
 
     public async Task<EmployeeDto> SetActiveAsync(string employeeCode, bool isActive)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         employee.EmploymentStatus = isActive ? EmploymentStatus.Active : EmploymentStatus.Terminated;
         employee.UpdatedAt = VietnamClock.Now;

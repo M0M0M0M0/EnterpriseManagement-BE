@@ -58,7 +58,7 @@ public class AttendanceService : IAttendanceService
     public async Task<AttendanceRecordDto> PunchAsync(string employeeCode, PunchRequest request)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         // Kiểm tra vị trí trước khi lưu bất cứ thứ gì (kể cả ảnh), để lần chấm công bị từ chối không để lại dữ liệu.
         ValidateLocation(request);
@@ -203,7 +203,7 @@ public class AttendanceService : IAttendanceService
     public async Task<IEnumerable<AttendanceRecordDto>> GetHistoryAsync(string employeeCode)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         // Lịch sử gồm mọi ngày có dữ liệu (chấm công thật, nghỉ phép, ghi chú), đã gộp theo trạng thái hiệu lực.
         var days = await _effective.GetDaysWithDataAsync(employee.Id);
@@ -223,7 +223,7 @@ public class AttendanceService : IAttendanceService
         }
 
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
         var days = await _effective.GetRangeAsync(employee.Id, from, to);
         return days.Select(AttendanceMapper.ToCalendarDto);
@@ -240,7 +240,7 @@ public class AttendanceService : IAttendanceService
         if (!string.IsNullOrWhiteSpace(departmentCode))
         {
             var department = await _departmentRepository.GetByCodeAsync(departmentCode)
-                ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
+                ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{departmentCode}'.");
             employees = employees.Where(e => e.DepartmentId == department.Id).ToList();
         }
 
@@ -252,7 +252,7 @@ public class AttendanceService : IAttendanceService
     public async Task<IEnumerable<AttendanceRecordDto>> GetByDepartmentAsync(string departmentCode, DateOnly startDate, DateOnly endDate)
     {
         var department = await _departmentRepository.GetByCodeAsync(departmentCode)
-            ?? throw new InvalidOperationException($"Department code '{departmentCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{departmentCode}'.");
 
         var employees = (await _employeeRepository.GetAllAsync()).Where(e => e.DepartmentId == department.Id).ToList();
         var byId = employees.ToDictionary(e => e.Id);

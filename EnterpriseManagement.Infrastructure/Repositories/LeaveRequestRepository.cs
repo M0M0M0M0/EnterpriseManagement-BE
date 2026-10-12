@@ -43,15 +43,6 @@ public class LeaveRequestRepository : ILeaveRequestRepository
             .ToListAsync();
     }
 
-    public async Task<bool> HasApprovedLeaveAtAsync(long employeeId, DateTime instant)
-    {
-        return await _context.LeaveRequests
-            .AnyAsync(l => l.EmployeeId == employeeId
-                && l.Status == LeaveRequestStatus.Approved
-                && l.StartDate <= instant
-                && l.EndDate >= instant);
-    }
-
     public async Task<LeaveRequest?> GetByIdAsync(long id) =>
         await _context.LeaveRequests
             .Include(l => l.LeaveType)

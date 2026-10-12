@@ -52,7 +52,7 @@ public class MenuService : IMenuService
         var existing = await _menuRepository.GetByCodeAsync(request.MenuCode);
         if (existing is not null)
         {
-            throw new InvalidOperationException($"Menu code '{request.MenuCode}' already exists.");
+            throw new InvalidOperationException($"Mã menu '{request.MenuCode}' đã tồn tại.");
         }
 
         var permissions = await ResolvePermissionsAsync(request.Permissions);
@@ -81,7 +81,7 @@ public class MenuService : IMenuService
     public async Task<MenuDto> UpdateAsync(string menuCode, UpdateMenuRequest request)
     {
         var menu = await _menuRepository.GetByCodeAsync(menuCode)
-            ?? throw new InvalidOperationException($"Menu code '{menuCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy menu có mã '{menuCode}'.");
 
         var permissions = await ResolvePermissionsAsync(request.Permissions);
 
@@ -106,7 +106,7 @@ public class MenuService : IMenuService
     public async Task<MenuDto> SetVisibleAsync(string menuCode, bool isVisible)
     {
         var menu = await _menuRepository.GetByCodeAsync(menuCode)
-            ?? throw new InvalidOperationException($"Menu code '{menuCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy menu có mã '{menuCode}'.");
 
         menu.IsVisible = isVisible;
         menu.UpdatedAt = VietnamClock.Now;
@@ -120,7 +120,7 @@ public class MenuService : IMenuService
     public async Task<MenuDto> SetActiveAsync(string menuCode, bool isActive)
     {
         var menu = await _menuRepository.GetByCodeAsync(menuCode)
-            ?? throw new InvalidOperationException($"Menu code '{menuCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy menu có mã '{menuCode}'.");
 
         menu.IsActive = isActive;
         menu.UpdatedAt = VietnamClock.Now;
@@ -140,7 +140,7 @@ public class MenuService : IMenuService
         var missing = codes.Except(permissions.Select(p => p.PermissionCode)).ToList();
         if (missing.Count > 0)
         {
-            throw new InvalidOperationException($"Permission code(s) not found: {string.Join(", ", missing)}.");
+            throw new InvalidOperationException($"Không tìm thấy mã quyền: {string.Join(", ", missing)}.");
         }
 
         return permissions;

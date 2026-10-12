@@ -44,7 +44,7 @@ public class PositionService : IPositionService
         var existing = await _positionRepository.GetByCodeAsync(request.PositionCode);
         if (existing is not null)
         {
-            throw new InvalidOperationException($"Position code '{request.PositionCode}' already exists.");
+            throw new InvalidOperationException($"Mã chức vụ '{request.PositionCode}' đã tồn tại.");
         }
 
         var position = new Position
@@ -66,7 +66,7 @@ public class PositionService : IPositionService
     public async Task<PositionDto> SetStandardSalaryAsync(string positionCode, decimal standardSalary)
     {
         var position = await _positionRepository.GetByCodeAsync(positionCode)
-            ?? throw new InvalidOperationException($"Position code '{positionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{positionCode}'.");
 
         var salary = await _positionSalaryRepository.GetByPositionIdAsync(position.Id);
         if (salary is null)
@@ -94,7 +94,7 @@ public class PositionService : IPositionService
     public async Task<PositionDto> UpdateAsync(string positionCode, UpdatePositionRequest request)
     {
         var position = await _positionRepository.GetByCodeAsync(positionCode)
-            ?? throw new InvalidOperationException($"Position code '{positionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{positionCode}'.");
 
         position.PositionName = request.PositionName;
         position.Description = request.Description;
@@ -110,7 +110,7 @@ public class PositionService : IPositionService
     public async Task<PositionDto> SetActiveAsync(string positionCode, bool isActive)
     {
         var position = await _positionRepository.GetByCodeAsync(positionCode)
-            ?? throw new InvalidOperationException($"Position code '{positionCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{positionCode}'.");
 
         position.IsActive = isActive;
         position.UpdatedAt = VietnamClock.Now;

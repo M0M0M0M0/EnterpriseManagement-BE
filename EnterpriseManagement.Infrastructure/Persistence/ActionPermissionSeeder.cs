@@ -15,7 +15,7 @@ public static class ActionPermissionSeeder
 
     private static readonly ActionSeed[] Seeds =
     {
-        new("attendance.punch", "Chấm công", "attendance", "Check-in / check-out hằng ngày.", new[] { "EMPLOYEE", "MANAGER" }),
+        new("attendance.punch", "Chấm công", "attendance", "Chấm công vào / ra hằng ngày.", new[] { "EMPLOYEE", "MANAGER" }),
         new("attendance.view.team", "Xem chấm công phòng ban", "attendance", "Xem bảng công của cả phòng ban.", new[] { "MANAGER" }),
         // Manager cũng tự chấm công như Employee (xem attendance.punch) nên cũng cần tự gửi/xem
         // yêu cầu điều chỉnh công của chính mình khi quên chấm công — thiếu MANAGER ở đây khiến
@@ -39,7 +39,7 @@ public static class ActionPermissionSeeder
         new("leavebalance.manage", "Cấp lại số ngày/giờ nghỉ", "leave", "Chỉnh số ngày/giờ nghỉ còn lại của nhân viên.", new[] { "MANAGER" }),
         new("leavetype.manage", "Quản lý loại nghỉ phép", "leave", "Tạo/sửa loại nghỉ phép và quy tắc tích lũy.", new[] { "ADMIN" }),
 
-        new("dashboard.view.team", "Xem dashboard phòng ban", "dashboard", "Xem dashboard tổng quan của cả phòng ban.", new[] { "MANAGER" }),
+        new("dashboard.view.team", "Xem tổng quan phòng ban", "dashboard", "Xem trang tổng quan của cả phòng ban.", new[] { "MANAGER" }),
 
         new("employee.view.all", "Xem toàn bộ nhân viên", "employee", "Xem danh sách toàn bộ nhân viên trong hệ thống.", new[] { "ADMIN" }),
         new("employee.manage", "Quản lý hồ sơ nhân viên", "employee", "Tạo, sửa, khóa/mở hồ sơ nhân viên.", new[] { "ADMIN" }),
@@ -49,11 +49,11 @@ public static class ActionPermissionSeeder
         new("position.manage", "Quản lý chức vụ", "organization", "Tạo, sửa, khóa/mở chức vụ và lương chuẩn.", new[] { "ADMIN" }),
 
         new("user.manage", "Quản lý tài khoản", "system", "Tạo tài khoản, khóa/mở, đặt lại mật khẩu.", new[] { "ADMIN" }),
-        new("role.manage", "Quản lý vai trò", "system", "Tạo, sửa vai trò và gán permission.", new[] { "ADMIN" }),
-        new("permission.manage", "Quản lý permission", "system", "Tạo, sửa permission trong hệ thống.", new[] { "ADMIN" }),
+        new("role.manage", "Quản lý vai trò", "system", "Tạo, sửa vai trò và gán quyền.", new[] { "ADMIN" }),
+        new("permission.manage", "Quản lý quyền", "system", "Tạo, sửa quyền trong hệ thống.", new[] { "ADMIN" }),
         new("menu.manage", "Quản lý menu", "system", "Tạo, sửa, ẩn/hiện menu sidebar.", new[] { "ADMIN" }),
 
-        new("audit.view", "Xem Audit Log", "system", "Xem lịch sử thao tác của toàn hệ thống.", new[] { "ADMIN", "MANAGER" }),
+        new("audit.view", "Xem nhật ký hệ thống", "system", "Xem lịch sử thao tác của toàn hệ thống.", new[] { "ADMIN", "MANAGER" }),
     };
 
     // Idempotent: chỉ tạo permission chưa tồn tại, và luôn đồng bộ RolePermission theo đúng
@@ -83,6 +83,8 @@ public static class ActionPermissionSeeder
 
             await context.SaveChangesAsync();
         }
+
+        await RenameEnglishPermissionsAsync(context, now);
 
         var roles = await context.Roles.ToDictionaryAsync(r => r.RoleCode);
         var permissionsByCode = await context.Permissions.ToDictionaryAsync(p => p.PermissionCode);
@@ -117,5 +119,41 @@ public static class ActionPermissionSeeder
         {
             await context.SaveChangesAsync();
         }
+    }
+
+    // Việt hoá tên/mô tả permission seed cũ còn tiếng Anh. Seeder chỉ chèn permission chưa có nên
+    // DB cũ vẫn giữ bản tiếng Anh; chỉ đổi khi giá trị hiện tại còn đúng bằng bản mặc định cũ,
+    // để không ghi đè nội dung Admin đã tự sửa.
+    private static readonly (string PermissionCode, string? OldName, string? NewName, string? OldDescription, string? NewDescription)[] EnglishRenames =
+    {
+        ("attendance.punch", null, null, "Check-in / check-out hằng ngày.", "Chấm công vào / ra hằng ngày."),
+        ("dashboard.view.team", "Xem dashboard phòng ban", "Xem tổng quan phòng ban", "Xem dashboard tổng quan của cả phòng ban.", "Xem trang tổng quan của cả phòng ban."),
+        ("permission.manage", "Quản lý permission", "Quản lý quyền", "Tạo, sửa permission trong hệ thống.", "Tạo, sửa quyền trong hệ thống."),
+        ("role.manage", null, null, "Tạo, sửa vai trò và gán permission.", "Tạo, sửa vai trò và gán quyền."),
+        ("audit.view", "Xem Audit Log", "Xem nhật ký hệ thống", null, null),
+    };
+
+    private static async Task RenameEnglishPermissionsAsync(ApplicationDbContext context, DateTime now)
+    {
+        var changed = false;
+        foreach (var (code, oldName, newName, oldDescription, newDescription) in EnglishRenames)
+        {
+            var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == code);
+            if (permission is null) continue;
+
+            if (newName is not null && permission.PermissionName == oldName)
+            {
+                permission.PermissionName = newName;
+                changed = true;
+            }
+
+            if (newDescription is not null && permission.Description == oldDescription)
+            {
+                permission.Description = newDescription;
+                changed = true;
+            }
+        }
+
+        if (changed) await context.SaveChangesAsync();
     }
 }

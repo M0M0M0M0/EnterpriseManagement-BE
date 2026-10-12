@@ -38,9 +38,9 @@ public class AttendanceNoteService : IAttendanceNoteService
     public async Task<IEnumerable<AttendanceNoteDto>> CreateAsync(string creatorEmployeeCode, CreateAttendanceNoteRequest request)
     {
         var creator = await _employeeRepository.GetByEmployeeCodeAsync(creatorEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{creatorEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{creatorEmployeeCode}'.");
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{request.EmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.EmployeeCode}'.");
 
         // Không tự ghi chú cho chính mình, để người xác nhận luôn là người khác.
         if (creator.Id == employee.Id)
@@ -157,7 +157,7 @@ public class AttendanceNoteService : IAttendanceNoteService
     public async Task RevokeAsync(long noteId, string revokerEmployeeCode)
     {
         var revoker = await _employeeRepository.GetByEmployeeCodeAsync(revokerEmployeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{revokerEmployeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{revokerEmployeeCode}'.");
 
         var note = await _repository.GetByIdAsync(noteId)
             ?? throw new InvalidOperationException($"Ghi chú {noteId} không tồn tại.");
@@ -185,7 +185,7 @@ public class AttendanceNoteService : IAttendanceNoteService
         if (!string.IsNullOrWhiteSpace(employeeCode))
         {
             var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-                ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+                ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
             employeeId = employee.Id;
         }
 

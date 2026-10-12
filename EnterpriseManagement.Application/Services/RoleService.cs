@@ -38,7 +38,7 @@ public class RoleService : IRoleService
         var existing = await _roleRepository.GetByCodeAsync(request.RoleCode);
         if (existing is not null)
         {
-            throw new InvalidOperationException($"Role code '{request.RoleCode}' already exists.");
+            throw new InvalidOperationException($"Mã vai trò '{request.RoleCode}' đã tồn tại.");
         }
 
         var permissions = await ResolvePermissionsAsync(request.Permissions);
@@ -66,7 +66,7 @@ public class RoleService : IRoleService
     public async Task<RoleDto> UpdateAsync(string roleCode, UpdateRoleRequest request)
     {
         var role = await _roleRepository.GetByCodeAsync(roleCode)
-            ?? throw new InvalidOperationException($"Role code '{roleCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy vai trò có mã '{roleCode}'.");
 
         var permissions = await ResolvePermissionsAsync(request.Permissions);
 
@@ -95,7 +95,7 @@ public class RoleService : IRoleService
     public async Task<RoleDto> SetActiveAsync(string roleCode, bool isActive)
     {
         var role = await _roleRepository.GetByCodeAsync(roleCode)
-            ?? throw new InvalidOperationException($"Role code '{roleCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy vai trò có mã '{roleCode}'.");
 
         role.IsActive = isActive;
         role.UpdatedAt = VietnamClock.Now;
@@ -115,7 +115,7 @@ public class RoleService : IRoleService
         var missing = codes.Except(permissions.Select(p => p.PermissionCode)).ToList();
         if (missing.Count > 0)
         {
-            throw new InvalidOperationException($"Permission code(s) not found: {string.Join(", ", missing)}.");
+            throw new InvalidOperationException($"Không tìm thấy mã quyền: {string.Join(", ", missing)}.");
         }
 
         return permissions;

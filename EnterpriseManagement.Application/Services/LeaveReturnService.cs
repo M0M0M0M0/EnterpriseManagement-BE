@@ -243,7 +243,7 @@ public class LeaveReturnService : ILeaveReturnService
 
     private async Task<Employee> GetEmployeeAsync(string employeeCode) =>
         await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
-            ?? throw new InvalidOperationException($"Employee code '{employeeCode}' not found.");
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
     private async Task<LeaveReturnRequest> GetForManagerAsync(long id, Employee manager, bool isAdmin)
     {
