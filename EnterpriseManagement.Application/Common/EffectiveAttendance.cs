@@ -97,10 +97,12 @@ public sealed class EffectiveDay
 public static class EffectiveDayCalculator
 {
     // Quy tắc giờ chuẩn (giữ đúng như AttendanceService.DetermineCheckInStatusAsync trước đây):
-    // vào trước/đúng 08:15 là đúng giờ, từ 10:00 trở đi coi như vắng buổi sáng, buổi chiều chuẩn là 13:15.
+    // vào trước/đúng 08:15 là đúng giờ, từ 10:00 trở đi coi như vắng buổi sáng; buổi chiều chuẩn là 13:15,
+    // từ 15:00 trở đi coi như vắng buổi chiều (cùng quy tắc "muộn quá 2 giờ so với giờ vào ca" như buổi sáng).
     public static readonly TimeOnly MorningDeadline = new(8, 15);
     public static readonly TimeOnly MorningAbsentFrom = new(10, 0);
     public static readonly TimeOnly AfternoonDeadline = new(13, 15);
+    public static readonly TimeOnly AfternoonAbsentFrom = new(15, 0);
 
     public static readonly TimeOnly MorningStart = new(8, 0);
     public static readonly TimeOnly AfternoonStart = new(13, 0);
@@ -206,8 +208,8 @@ public static class EffectiveDayCalculator
             var ci = TimeOnly.FromDateTime(punch.CheckIn);
             var status = session == DaySession.Morning
                 ? (ci <= MorningDeadline ? SessionStatus.OnTime : ci < MorningAbsentFrom ? SessionStatus.Late : SessionStatus.Absent)
-                // Buổi chiều: mốc chuẩn 13:15, dùng chung cho cả ngày bình thường và ngày đã nghỉ phép buổi sáng.
-                : (ci <= AfternoonDeadline ? SessionStatus.OnTime : SessionStatus.Late);
+                // Buổi chiều: mốc chuẩn 13:15, từ 15:00 là vắng; dùng chung cho cả ngày bình thường và ngày đã nghỉ phép buổi sáng.
+                : (ci <= AfternoonDeadline ? SessionStatus.OnTime : ci < AfternoonAbsentFrom ? SessionStatus.Late : SessionStatus.Absent);
             return (status, SessionSource.Attendance, null);
         }
 

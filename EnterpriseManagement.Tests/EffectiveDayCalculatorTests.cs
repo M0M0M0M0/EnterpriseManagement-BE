@@ -71,6 +71,9 @@ public class EffectiveDayCalculatorTests
     [InlineData(8, 30, SessionStatus.Late, SessionStatus.OnTime)]
     [InlineData(10, 30, SessionStatus.Absent, SessionStatus.OnTime)]
     [InlineData(14, 0, SessionStatus.Absent, SessionStatus.Late)]
+    [InlineData(14, 59, SessionStatus.Absent, SessionStatus.Late)]
+    [InlineData(15, 0, SessionStatus.Absent, SessionStatus.Absent)]
+    [InlineData(18, 55, SessionStatus.Absent, SessionStatus.Absent)]
     public void Punch_DerivesEachSessionFromCheckInTime(int h, int m, SessionStatus morning, SessionStatus afternoon)
     {
         var inputs = Inputs();
