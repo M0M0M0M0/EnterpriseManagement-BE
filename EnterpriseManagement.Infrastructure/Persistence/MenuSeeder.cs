@@ -17,7 +17,7 @@ public static class MenuSeeder
     private static readonly MenuSeed[] Seeds =
     {
         new("EMPLOYEE_DASHBOARD", "Tổng quan", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
-        new("EMPLOYEE_ATTENDANCE", "Chấm công", "ClockRegular", "/employee/attendance", 2, "page.employee.attendance", "EMPLOYEE"),
+        new("EMPLOYEE_ATTENDANCE", "Điều chỉnh chấm công", "ClockRegular", "/employee/attendance", 2, "page.employee.attendance", "EMPLOYEE"),
         new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 3, "page.employee.leave", "EMPLOYEE"),
 
         new("MANAGER_DASHBOARD", "Tổng quan phòng ban", "HomeRegular", "/manager/dashboard", 1, "page.manager.dashboard", "MANAGER"),
@@ -240,6 +240,8 @@ public static class MenuSeeder
         ("MANAGER_DASHBOARD", "page.manager.dashboard", "Dashboard tổng quan", "Tổng quan phòng ban"),
         ("ADMIN_AUDIT", "page.admin.audit", "Audit Log", "Nhật ký hệ thống"),
         ("ADMIN_SYSTEM", "page.admin.system", "System Administration", "Quản trị hệ thống"),
+        // Việc chấm công đã chuyển sang Trang chủ/Tổng quan; trang này chỉ còn lịch và yêu cầu điều chỉnh.
+        ("EMPLOYEE_ATTENDANCE", "page.employee.attendance", "Chấm công", "Điều chỉnh chấm công"),
     };
 
     private static async Task RenameEnglishSeedMenusAsync(ApplicationDbContext context, DateTime now)
