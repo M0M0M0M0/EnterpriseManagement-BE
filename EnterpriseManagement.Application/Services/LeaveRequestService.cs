@@ -173,6 +173,10 @@ public class LeaveRequestService : ILeaveRequestService
     {
         if (leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset)
         {
+            if (EffectiveDayCalculator.IsWeekend(DateOnly.FromDateTime(request.StartDate)))
+            {
+                throw new InvalidOperationException("Không thể xin nghỉ vào thứ Bảy hoặc Chủ nhật.");
+            }
             if (request.StartDate.Date != now.Date)
             {
                 throw new InvalidOperationException("Nghỉ ngắn chỉ được xin cho ngày hôm nay.");
@@ -203,6 +207,11 @@ public class LeaveRequestService : ILeaveRequestService
         if (startOnly != endOnly && session != LeaveSession.FullDay)
         {
             throw new InvalidOperationException("Nghỉ nhiều ngày chỉ được chọn buổi Cả ngày.");
+        }
+        // Nghỉ nửa ngày phải rơi vào ngày làm việc (đơn nhiều ngày thì cuối tuần ở giữa chỉ đơn giản không bị tính).
+        if (session != LeaveSession.FullDay && EffectiveDayCalculator.IsWeekend(DateOnly.FromDateTime(startOnly)))
+        {
+            throw new InvalidOperationException("Không thể xin nghỉ vào thứ Bảy hoặc Chủ nhật.");
         }
 
         if (leaveType.LeaveTypeCode == "ANNUAL")
