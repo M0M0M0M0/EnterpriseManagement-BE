@@ -1,3 +1,4 @@
+using EnterpriseManagement.Domain.Entities.Identity;
 using EnterpriseManagement.Domain.Enums;
 
 namespace EnterpriseManagement.Domain.Entities.HR;
@@ -11,7 +12,8 @@ public class Employee
     public DateOnly? DateOfBirth { get; set; }
     public Gender? Gender { get; set; }
     public string? Phone { get; set; }
-    public string? Email { get; set; }
+    // Email duy nhất của người này (bắt buộc). Tài khoản đăng nhập không còn email riêng.
+    public string Email { get; set; } = string.Empty;
     public string? Address { get; set; }
 
     public long DepartmentId { get; set; }
@@ -26,6 +28,13 @@ public class Employee
 
     public DateOnly HireDate { get; set; }
     public EmploymentStatus EmploymentStatus { get; set; }
+
+    // false = tài khoản hệ thống (vd admin): không chấm công, không bị tính vắng mặt, không nhận nhắc chấm công,
+    // không nằm trong bảng công/nghỉ phép và không được chọn làm quản lý/trưởng phòng.
+    public bool TracksAttendance { get; set; } = true;
+
+    // Tài khoản đăng nhập của người này (quan hệ 1-1 bắt buộc, tạo cùng lúc với hồ sơ).
+    public User? User { get; set; }
 
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

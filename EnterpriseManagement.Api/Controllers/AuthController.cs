@@ -41,9 +41,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var username = _currentUserService.Username
-                ?? throw new InvalidOperationException("Không xác định được tài khoản hiện tại.");
-            await _userService.ChangePasswordAsync(username, request.CurrentPassword, request.NewPassword);
+            await _userService.ChangePasswordAsync(_currentUserService.Username!, request.CurrentPassword, request.NewPassword);
             return Ok();
         }
         catch (InvalidOperationException ex)

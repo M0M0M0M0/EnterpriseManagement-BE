@@ -5,4 +5,7 @@ public class CreatePositionRequest
     public string PositionCode { get; set; } = string.Empty;
     public string PositionName { get; set; } = string.Empty;
     public string? Description { get; set; }
+
+    // Tuỳ chọn: vai trò mặc định cho tài khoản của nhân viên mới thuộc chức vụ này.
+    public string? RoleCode { get; set; }
 }

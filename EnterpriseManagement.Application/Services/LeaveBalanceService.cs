@@ -31,6 +31,9 @@ public class LeaveBalanceService : ILeaveBalanceService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
+        // Tài khoản hệ thống không dùng nghỉ phép: không tạo số dư phép.
+        if (!employee.TracksAttendance) return Array.Empty<LeaveBalanceDto>();
+
         var leaveTypes = (await _leaveTypeRepository.GetAllAsync()).Where(lt => lt.IsActive);
         var now = VietnamClock.Now;
         var targetDate = year == now.Year ? now : new DateTime(year, 1, 1);
@@ -54,6 +57,11 @@ public class LeaveBalanceService : ILeaveBalanceService
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(request.EmployeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.EmployeeCode}'.");
+
+        if (!employee.TracksAttendance)
+        {
+            throw new InvalidOperationException("Tài khoản hệ thống không dùng chức năng nghỉ phép.");
+        }
 
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy loại nghỉ có mã '{request.LeaveTypeCode}'.");

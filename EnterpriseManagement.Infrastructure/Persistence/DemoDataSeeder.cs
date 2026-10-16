@@ -59,7 +59,8 @@ public static class DemoDataSeeder
 
     public static async Task SeedAsync(ApplicationDbContext context, IPasswordHasher passwordHasher)
     {
-        if (await context.Departments.AnyAsync())
+        // Phòng ban SYS của tài khoản hệ thống admin (DataSeeder tạo) không tính là "đã có dữ liệu".
+        if (await context.Departments.AnyAsync(d => d.DepartmentCode != DataSeeder.SystemDepartmentCode))
         {
             return;
         }
@@ -79,8 +80,8 @@ public static class DemoDataSeeder
         await SeedAttendanceAsync(context, now, today, employees, approvedLeaveDates);
     }
 
-    // Chức vụ giờ chỉ là chức danh hiển thị (không còn RoleCode) — role cho tài khoản demo được
-    // suy ra riêng trong SeedUsersAsync qua RoleCodeByPosition bên dưới, không đọc từ Position.
+    // Vai trò mặc định của 4 chức vụ mẫu (cũng ghi vào Position.RoleCode khi chức vụ được tạo ở đây).
+    // Tài khoản demo dùng bảng này để không phụ thuộc vào RoleCode Admin đã sửa tay.
     private static readonly Dictionary<string, string> RoleCodeByPosition = new()
     {
         ["HEAD"] = "MANAGER",
@@ -113,6 +114,7 @@ public static class DemoDataSeeder
             {
                 PositionCode = code,
                 PositionName = name,
+                RoleCode = RoleCodeByPosition.GetValueOrDefault(code),
                 IsActive = true,
                 CreatedAt = now,
             };
@@ -229,7 +231,6 @@ public static class DemoDataSeeder
             {
                 EmployeeId = employee.Id,
                 Username = seed.Username,
-                Email = employee.Email!,
                 PasswordHash = passwordHash,
                 IsActive = true,
                 CreatedAt = now,

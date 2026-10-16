@@ -2,16 +2,16 @@ using EnterpriseManagement.Application.DTOs;
 
 namespace EnterpriseManagement.Application.Interfaces;
 
+// Tài khoản đăng nhập gắn 1-1 với hồ sơ nhân viên: tạo/sửa email nằm ở IEmployeeService.
+// Ở đây chỉ còn đăng nhập, khoá/mở, đặt lại/đổi mật khẩu và đổi vai trò.
 public interface IUserService
 {
     Task<LoginResult> LoginAsync(LoginRequest request);
-    Task<CreateUserResult> CreateAsync(CreateUserRequest request);
     Task<IEnumerable<UserDto>> GetAllAsync();
     Task<UserDto> SetActiveAsync(string username, bool isActive);
 
-    // Sửa email, hồ sơ nhân viên liên kết, vai trò và trạng thái. Vai trò mới có hiệu lực ở lần đăng nhập kế tiếp của tài khoản đó.
-    Task<UserDto> UpdateAsync(string username, UpdateUserRequest request);
+    // Vai trò mới có hiệu lực ở lần đăng nhập kế tiếp của tài khoản đó.
     Task<UserDto> UpdateRolesAsync(string username, IReadOnlyCollection<string> roleCodes);
-    Task<CreateUserResult> ResetPasswordAsync(string username);
+    Task<ResetPasswordResult> ResetPasswordAsync(string username);
     Task ChangePasswordAsync(string username, string currentPassword, string newPassword);
 }

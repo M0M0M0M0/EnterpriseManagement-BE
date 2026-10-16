@@ -29,7 +29,7 @@ public class LeaveReturnsController : ControllerBase
     {
         try
         {
-            return Ok(await _service.PreviewAsync(_currentUserService.EmployeeCode!, fromDate, fromSession));
+            return Ok(await _service.PreviewAsync(_currentUserService.EmployeeCode, fromDate, fromSession));
         }
         catch (InvalidOperationException ex)
         {
@@ -43,7 +43,7 @@ public class LeaveReturnsController : ControllerBase
     {
         try
         {
-            return Ok(await _service.SubmitAsync(_currentUserService.EmployeeCode!, request));
+            return Ok(await _service.SubmitAsync(_currentUserService.EmployeeCode, request));
         }
         catch (InvalidOperationException ex)
         {
@@ -54,14 +54,14 @@ public class LeaveReturnsController : ControllerBase
     [HttpGet("mine")]
     [RequirePermission("leave.request.self")]
     public async Task<ActionResult<IEnumerable<LeaveReturnRequestDto>>> GetMine() =>
-        Ok(await _service.GetMineAsync(_currentUserService.EmployeeCode!));
+        Ok(await _service.GetMineAsync(_currentUserService.EmployeeCode));
 
     // ---- Manager ----
 
     [HttpGet("pending")]
     [RequirePermission("leave.request.view")]
     public async Task<ActionResult<IEnumerable<LeaveReturnRequestDto>>> GetPending() =>
-        Ok(await _service.GetPendingForManagerAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN")));
+        Ok(await _service.GetPendingForManagerAsync(_currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN")));
 
     [HttpPut("{id}/approve")]
     [RequirePermission("leave.request.approve")]
@@ -69,7 +69,7 @@ public class LeaveReturnsController : ControllerBase
     {
         try
         {
-            return Ok(await _service.ApproveAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN")));
+            return Ok(await _service.ApproveAsync(id, _currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN")));
         }
         catch (InvalidOperationException ex)
         {
@@ -83,7 +83,7 @@ public class LeaveReturnsController : ControllerBase
     {
         try
         {
-            return Ok(await _service.RejectAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"), request.Reason));
+            return Ok(await _service.RejectAsync(id, _currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"), request.Reason));
         }
         catch (InvalidOperationException ex)
         {
@@ -104,7 +104,7 @@ public class LeaveReturnsController : ControllerBase
     {
         try
         {
-            return Ok(await _service.ProcessAsync(id, _currentUserService.EmployeeCode!, request));
+            return Ok(await _service.ProcessAsync(id, _currentUserService.EmployeeCode, request));
         }
         catch (InvalidOperationException ex)
         {
@@ -118,7 +118,7 @@ public class LeaveReturnsController : ControllerBase
     {
         try
         {
-            return Ok(await _service.RejectProcessingAsync(id, _currentUserService.EmployeeCode!, request.Reason));
+            return Ok(await _service.RejectProcessingAsync(id, _currentUserService.EmployeeCode, request.Reason));
         }
         catch (InvalidOperationException ex)
         {

@@ -5,6 +5,8 @@ public class PositionDto
     public string PositionCode { get; set; } = string.Empty;
     public string PositionName { get; set; } = string.Empty;
     public string? Description { get; set; }
+    // Vai trò mặc định cho tài khoản của nhân viên mới thuộc chức vụ này (null = EMPLOYEE).
+    public string? RoleCode { get; set; }
     public bool IsActive { get; set; }
     public decimal? StandardSalary { get; set; }
 }

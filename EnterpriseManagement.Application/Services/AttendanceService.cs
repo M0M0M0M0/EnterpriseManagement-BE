@@ -236,7 +236,8 @@ public class AttendanceService : IAttendanceService
             throw new InvalidOperationException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
         }
 
-        var employees = (await _employeeRepository.GetAllAsync()).ToList();
+        // Bảng công chỉ gồm người có chấm công (bỏ tài khoản hệ thống như admin).
+        var employees = (await _employeeRepository.GetAllAsync()).Where(e => e.TracksAttendance).ToList();
         if (!string.IsNullOrWhiteSpace(departmentCode))
         {
             var department = await _departmentRepository.GetByCodeAsync(departmentCode)
@@ -254,7 +255,9 @@ public class AttendanceService : IAttendanceService
         var department = await _departmentRepository.GetByCodeAsync(departmentCode)
             ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{departmentCode}'.");
 
-        var employees = (await _employeeRepository.GetAllAsync()).Where(e => e.DepartmentId == department.Id).ToList();
+        var employees = (await _employeeRepository.GetAllAsync())
+            .Where(e => e.DepartmentId == department.Id && e.TracksAttendance)
+            .ToList();
         var byId = employees.ToDictionary(e => e.Id);
 
         var days = await _effective.GetDaysWithDataAsync(byId.Keys.ToList(), startDate, endDate);
@@ -284,7 +287,8 @@ public class AttendanceService : IAttendanceService
             {
                 if (!visited.Add(child.Id)) continue;
                 // Người đã nghỉ việc không còn trong bảng công, nhưng vẫn đi tiếp xuống cấp dưới của họ.
-                if (child.EmploymentStatus is not (EmploymentStatus.Resigned or EmploymentStatus.Terminated)) team.Add(child);
+                // Tài khoản hệ thống (không chấm công) cũng không nằm trong bảng công.
+                if (child.TracksAttendance && child.EmploymentStatus is not (EmploymentStatus.Resigned or EmploymentStatus.Terminated)) team.Add(child);
                 queue.Enqueue(child.Id);
             }
         }

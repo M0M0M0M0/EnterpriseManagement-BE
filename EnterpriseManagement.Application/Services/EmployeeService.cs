@@ -2,10 +2,12 @@ using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.HR;
+using EnterpriseManagement.Domain.Entities.Identity;
 using EnterpriseManagement.Domain.Enums;
 
 namespace EnterpriseManagement.Application.Services;
 
+// Hồ sơ nhân viên và tài khoản đăng nhập gắn 1-1: tạo cùng lúc, sửa cùng màn hình, nghỉ việc thì khoá tài khoản.
 public class EmployeeService : IEmployeeService
 {
     private readonly IEmployeeRepository _employeeRepository;
@@ -13,8 +15,11 @@ public class EmployeeService : IEmployeeService
     private readonly IPositionRepository _positionRepository;
     private readonly IEffectiveAttendanceService _effective;
     private readonly IUserRepository _userRepository;
+    private readonly IRoleRepository _roleRepository;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly UserAccountRules _rules;
 
     public EmployeeService(
         IEmployeeRepository employeeRepository,
@@ -22,6 +27,8 @@ public class EmployeeService : IEmployeeService
         IPositionRepository positionRepository,
         IEffectiveAttendanceService effective,
         IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        IPasswordHasher passwordHasher,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
     {
@@ -30,12 +37,18 @@ public class EmployeeService : IEmployeeService
         _positionRepository = positionRepository;
         _effective = effective;
         _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _passwordHasher = passwordHasher;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _rules = new UserAccountRules(userRepository, roleRepository, currentUserService);
     }
 
     private Task LogAsync(string action, long? entityId) =>
         _auditLogService.LogAsync(_currentUserService.UserId, action, "Employee", entityId, _currentUserService.IpAddress);
+
+    private Task LogUserAsync(string action, long? userId) =>
+        _auditLogService.LogAsync(_currentUserService.UserId, action, "User", userId, _currentUserService.IpAddress);
 
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync()
     {
@@ -49,20 +62,55 @@ public class EmployeeService : IEmployeeService
         return employee is null ? null : ToDto(employee);
     }
 
-    public async Task<EmployeeDto> CreateAsync(CreateEmployeeRequest request)
+    // Tạo nhân viên = tạo hồ sơ + tài khoản đăng nhập trong cùng một lần lưu (không bao giờ có hồ sơ thiếu tài khoản).
+    public async Task<CreateEmployeeResult> CreateAsync(CreateEmployeeRequest request)
     {
+        var firstName = (request.FirstName ?? string.Empty).Trim();
+        var lastName = (request.LastName ?? string.Empty).Trim();
+        if (firstName.Length == 0 || lastName.Length == 0)
+        {
+            throw new InvalidOperationException("Vui lòng nhập đủ họ tên.");
+        }
+
+        var username = UserAccountRules.NormalizeUsername(request.Username);
+        var email = UserAccountRules.NormalizeEmail(request.Email);
+
+        if (await _userRepository.GetByUsernameAsync(username) is not null)
+        {
+            throw new InvalidOperationException($"Tên đăng nhập '{username}' đã tồn tại.");
+        }
+
+        await EnsureEmailNotUsedAsync(email, exceptEmployeeId: null);
+
         var department = await _departmentRepository.GetByCodeAsync(request.DepartmentCode)
             ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{request.DepartmentCode}'.");
         var position = await _positionRepository.GetByCodeAsync(request.PositionCode)
             ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{request.PositionCode}'.");
-        var manager = await ResolveManagerAsync(request.ManagerCode);
+        var manager = await ResolveManagerAsync(request.ManagerCode, self: null);
+
+        // Vai trò: chọn tay > vai trò mặc định của chức vụ > EMPLOYEE.
+        var roleCode = !string.IsNullOrWhiteSpace(request.RoleCode)
+            ? request.RoleCode.Trim()
+            : !string.IsNullOrWhiteSpace(position.RoleCode) ? position.RoleCode : "EMPLOYEE";
+        var role = await _roleRepository.GetByCodeAsync(roleCode)
+            ?? throw new InvalidOperationException($"Không tìm thấy vai trò có mã '{roleCode}'.");
+
+        var status = EmploymentStatus.Probation;
+        if (!string.IsNullOrWhiteSpace(request.EmploymentStatus)
+            && !Enum.TryParse(request.EmploymentStatus, ignoreCase: true, out status))
+        {
+            throw new InvalidOperationException($"Trạng thái làm việc '{request.EmploymentStatus}' không hợp lệ.");
+        }
+
+        var now = VietnamClock.Now;
+        var generatedPassword = RandomCodeGenerator.Generate(10);
 
         var employee = new Employee
         {
             EmployeeCode = await GenerateUniqueEmployeeCodeAsync(),
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Email = request.Email,
+            FirstName = firstName,
+            LastName = lastName,
+            Email = email,
             Phone = request.Phone,
             Address = request.Address,
             DateOfBirth = request.DateOfBirth,
@@ -70,17 +118,35 @@ public class EmployeeService : IEmployeeService
             DepartmentId = department.Id,
             PositionId = position.Id,
             ManagerId = manager?.Id,
-            HireDate = request.HireDate,
-            EmploymentStatus = EmploymentStatus.Probation,
-            CreatedAt = VietnamClock.Now
+            HireDate = request.HireDate == default ? VietnamClock.Today : request.HireDate,
+            EmploymentStatus = status,
+            TracksAttendance = true,
+            CreatedAt = now
         };
+
+        // Tạo ở trạng thái đã nghỉ việc thì tài khoản cũng khoá luôn cho khớp quy tắc "nghỉ việc = khoá tài khoản".
+        var user = new User
+        {
+            Employee = employee,
+            Username = username,
+            PasswordHash = _passwordHasher.Hash(generatedPassword),
+            IsActive = status is not (EmploymentStatus.Resigned or EmploymentStatus.Terminated),
+            CreatedAt = now
+        };
+        user.UserRoles.Add(new UserRole { User = user, Role = role, RoleId = role.Id, AssignedAt = now });
+        employee.User = user;
 
         await _employeeRepository.AddAsync(employee);
         await _employeeRepository.SaveChangesAsync();
         await LogAsync("Create", employee.Id);
+        await LogUserAsync("Create", user.Id);
 
         var created = await _employeeRepository.GetByIdAsync(employee.Id);
-        return ToDto(created!);
+        return new CreateEmployeeResult
+        {
+            Employee = ToDto(created!),
+            GeneratedPassword = generatedPassword
+        };
     }
 
     public async Task<IEnumerable<EmployeeDto>> GetTeamAsync(string managerEmployeeCode)
@@ -192,57 +258,112 @@ public class EmployeeService : IEmployeeService
             ?? throw new InvalidOperationException($"Không tìm thấy phòng ban có mã '{request.DepartmentCode}'.");
         var position = await _positionRepository.GetByCodeAsync(request.PositionCode)
             ?? throw new InvalidOperationException($"Không tìm thấy chức vụ có mã '{request.PositionCode}'.");
-        var manager = await ResolveManagerAsync(request.ManagerCode);
+        var manager = await ResolveManagerAsync(request.ManagerCode, employee);
 
         if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
         {
             throw new InvalidOperationException("Vui lòng nhập đủ họ tên.");
         }
 
-        employee.FirstName = request.FirstName;
-        employee.LastName = request.LastName;
+        string? newEmail = null;
+        if (request.Email is not null)
+        {
+            newEmail = UserAccountRules.NormalizeEmail(request.Email);
+            await EnsureEmailNotUsedAsync(newEmail, exceptEmployeeId: employee.Id);
+        }
+
+        var user = employee.User
+            ?? throw new InvalidOperationException($"Nhân viên '{employeeCode}' chưa có tài khoản đăng nhập.");
+
+        var rolesChanged = false;
+        if (request.RoleCodes is not null)
+        {
+            var before = user.UserRoles.Select(ur => ur.Role.RoleCode).OrderBy(c => c).ToList();
+            await _rules.ApplyRolesAsync(user, request.RoleCodes);
+            rolesChanged = !before.SequenceEqual(user.UserRoles.Select(ur => ur.Role.RoleCode).OrderBy(c => c));
+        }
+
+        var now = VietnamClock.Now;
+        employee.FirstName = request.FirstName.Trim();
+        employee.LastName = request.LastName.Trim();
         employee.Phone = request.Phone;
         employee.Address = request.Address;
+        if (newEmail is not null) employee.Email = newEmail;
         employee.DepartmentId = department.Id;
         employee.PositionId = position.Id;
         employee.ManagerId = manager?.Id;
-        employee.UpdatedAt = VietnamClock.Now;
+        employee.UpdatedAt = now;
+        if (rolesChanged) user.UpdatedAt = now;
 
         await _employeeRepository.SaveChangesAsync();
         await LogAsync("Update", employee.Id);
+        if (rolesChanged) await LogUserAsync("UpdateRoles", user.Id);
 
         var updated = await _employeeRepository.GetByIdAsync(employee.Id);
         return ToDto(updated!);
     }
 
-    private async Task<Employee?> ResolveManagerAsync(string? managerCode)
+    private async Task EnsureEmailNotUsedAsync(string email, long? exceptEmployeeId)
     {
-        if (string.IsNullOrWhiteSpace(managerCode)) return null;
-        return await _employeeRepository.GetByEmployeeCodeAsync(managerCode)
-            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerCode}'.");
+        var owner = await _employeeRepository.GetByEmailAsync(email);
+        if (owner is not null && owner.Id != exceptEmployeeId)
+        {
+            throw new InvalidOperationException($"Email '{email}' đã được dùng cho nhân viên khác ({owner.EmployeeCode}).");
+        }
     }
 
+    // Tài khoản hệ thống (không chấm công, vd admin) không được làm quản lý trực tiếp của ai; không ai tự quản lý chính mình.
+    private async Task<Employee?> ResolveManagerAsync(string? managerCode, Employee? self)
+    {
+        if (string.IsNullOrWhiteSpace(managerCode)) return null;
+        var manager = await _employeeRepository.GetByEmployeeCodeAsync(managerCode)
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerCode}'.");
+
+        if (!manager.TracksAttendance)
+        {
+            throw new InvalidOperationException("Tài khoản hệ thống không thể được chọn làm quản lý.");
+        }
+
+        if (self is not null && manager.Id == self.Id)
+        {
+            throw new InvalidOperationException("Nhân viên không thể tự làm quản lý của chính mình.");
+        }
+
+        return manager;
+    }
+
+    // Cho nghỉ việc = EmploymentStatus Resigned + khoá tài khoản; Phục hồi = Active + mở tài khoản.
     public async Task<EmployeeDto> SetActiveAsync(string employeeCode, bool isActive)
     {
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
+        var user = employee.User
+            ?? throw new InvalidOperationException($"Nhân viên '{employeeCode}' chưa có tài khoản đăng nhập.");
 
-        employee.EmploymentStatus = isActive ? EmploymentStatus.Active : EmploymentStatus.Terminated;
-        employee.UpdatedAt = VietnamClock.Now;
-
-        // Cho nghỉ việc thì khoá luôn các tài khoản gắn với hồ sơ này, để hai trạng thái không bị lệch nhau.
-        // Phục hồi hồ sơ thì KHÔNG tự mở lại tài khoản: Admin chủ động mở để tránh cấp lại quyền ngoài ý muốn.
         if (!isActive)
         {
-            var users = await _userRepository.GetAllAsync();
-            foreach (var user in users.Where(u => u.EmployeeId == employee.Id && u.IsActive))
+            if (_rules.IsCurrentUser(user))
             {
-                user.IsActive = false;
+                throw new InvalidOperationException("Bạn không thể tự cho mình nghỉ việc.");
+            }
+
+            if (user.IsActive)
+            {
+                await _rules.EnsureNotLockingOutAsync(user, removingAdminRole: false);
             }
         }
 
+        var accountChanged = user.IsActive != isActive;
+        var now = VietnamClock.Now;
+
+        employee.EmploymentStatus = isActive ? EmploymentStatus.Active : EmploymentStatus.Resigned;
+        employee.UpdatedAt = now;
+        user.IsActive = isActive;
+        if (accountChanged) user.UpdatedAt = now;
+
         await _employeeRepository.SaveChangesAsync();
         await LogAsync(isActive ? "Activate" : "Deactivate", employee.Id);
+        if (accountChanged) await LogUserAsync(isActive ? "Unlock" : "Lock", user.Id);
 
         var updated = await _employeeRepository.GetByIdAsync(employee.Id);
         return ToDto(updated!);
@@ -263,7 +384,7 @@ public class EmployeeService : IEmployeeService
         return code;
     }
 
-    private static EmployeeDto ToDto(Employee employee) => new()
+    public static EmployeeDto ToDto(Employee employee) => new()
     {
         EmployeeCode = employee.EmployeeCode,
         FirstName = employee.FirstName,
@@ -281,6 +402,12 @@ public class EmployeeService : IEmployeeService
         ManagerCode = employee.Manager?.EmployeeCode,
         ManagerName = employee.Manager is null ? null : $"{employee.Manager.FirstName} {employee.Manager.LastName}",
         EmploymentStatus = employee.EmploymentStatus.ToString(),
-        HireDate = employee.HireDate
+        HireDate = employee.HireDate,
+        TracksAttendance = employee.TracksAttendance,
+        Username = employee.User?.Username ?? string.Empty,
+        RoleCodes = employee.User?.UserRoles.Select(ur => ur.Role.RoleCode).OrderBy(c => c).ToList() ?? new List<string>(),
+        RoleNames = employee.User?.UserRoles.OrderBy(ur => ur.Role.RoleCode).Select(ur => ur.Role.RoleName).ToList() ?? new List<string>(),
+        IsAccountActive = employee.User?.IsActive ?? false,
+        LastLoginAt = employee.User?.LastLoginAt
     };
 }

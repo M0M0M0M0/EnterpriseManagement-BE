@@ -20,7 +20,7 @@ public class CurrentUserService : ICurrentUserService
             ? id
             : null;
 
-    public string? EmployeeCode => _httpContextAccessor.HttpContext?.User.FindFirstValue("employeeCode");
+    public string EmployeeCode => _httpContextAccessor.HttpContext?.User.FindFirstValue("employeeCode") ?? string.Empty;
 
     public string? Username => _httpContextAccessor.HttpContext?.User.FindFirstValue(ClaimTypes.Name);
 

@@ -16,11 +16,15 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(x => x.LastName).HasMaxLength(100).IsRequired();
         builder.Property(x => x.Gender).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.Phone).HasMaxLength(20);
-        builder.Property(x => x.Email).HasMaxLength(255);
+        builder.Property(x => x.Email).HasMaxLength(255).IsRequired();
         builder.Property(x => x.Address).HasMaxLength(500);
         builder.Property(x => x.EmploymentStatus).HasConversion<string>().HasMaxLength(30).IsRequired();
 
+        // Mặc định 1 ở DB cho dữ liệu cũ; ValueGeneratedNever để EF luôn ghi đúng giá trị C# (kể cả false).
+        builder.Property(x => x.TracksAttendance).HasDefaultValue(true).ValueGeneratedNever();
+
         builder.HasIndex(x => x.EmployeeCode).IsUnique();
+        builder.HasIndex(x => x.Email).IsUnique();
 
         builder.HasOne(x => x.Department)
             .WithMany(x => x.Employees)

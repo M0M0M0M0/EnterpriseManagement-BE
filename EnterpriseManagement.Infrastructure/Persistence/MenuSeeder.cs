@@ -32,7 +32,6 @@ public static class MenuSeeder
         new("HR_ADJUSTMENTS", "Xử lý điều chỉnh công", "DocumentBulletListRegular", "/hr/adjustments", 3, "page.hr.adjustments", "ADMIN"),
         new("HR_LEAVE_RETURNS", "Xử lý đi làm lại", "CalendarRegular", "/hr/leave-returns", 4, "page.hr.leave-returns", "ADMIN"),
 
-        new("ADMIN_USERS", "Tài khoản", "ShieldRegular", "/admin/users", 1, "page.admin.users", "ADMIN"),
         new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
         new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),
         new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 4, "page.admin.positions", "ADMIN"),
@@ -54,7 +53,9 @@ public static class MenuSeeder
         // Manager muốn xem chỉ cần được cấp permission "page.admin.audit" như Admin.
         await MergeManagerAuditMenuAsync(context, now);
         await SplitAdminOrganizationMenuAsync(context);
-        await RenameAdminUsersMenuAsync(context, now);
+        // Menu "Tài khoản" (ADMIN_USERS) đã bị bỏ: tài khoản gộp vào "Quản lý nhân viên" (migration MergeEmployeeAndUser
+        // xoá menu + permission page.admin.users). Gọi lại ở đây để DB nào còn sót cũng được dọn.
+        await RemoveAdminUsersMenuAsync(context);
         await RenameEnglishSeedMenusAsync(context, now);
 
         var existingMenuCodes = (await context.Menus.Select(m => m.MenuCode).ToListAsync()).ToHashSet();
@@ -210,23 +211,26 @@ public static class MenuSeeder
         await context.SaveChangesAsync();
     }
 
-    // ADMIN_USERS được đặt tên hiển thị trong sidebar ngắn gọn lại thành "Tài khoản" — trang
-    // này giờ chỉ còn quản lý tài khoản đăng nhập (Role/Permission đã có màn hình "System
-    // Administration" riêng), tên cũ "User / Role / Permission" không còn đúng nữa. Seeder chỉ
-    // insert MenuCode còn thiếu, không tự sửa tên menu đã tồn tại, nên cần đổi 1 lần ở đây —
-    // chỉ đổi khi tên hiện tại còn đúng 1 trong các tên cũ đã biết, để không ghi đè lên tên
-    // Admin đã tự sửa tay qua màn hình System Administration.
-    private static async Task RenameAdminUsersMenuAsync(ApplicationDbContext context, DateTime now)
+    // Xoá menu ADMIN_USERS ("Tài khoản") cùng permission "page.admin.users" và mọi liên kết (MenuPermissions, RolePermissions).
+    // Không đụng permission hành động "user.manage" (khoá/mở, đặt lại mật khẩu vẫn dùng).
+    private static async Task RemoveAdminUsersMenuAsync(ApplicationDbContext context)
     {
-        var menu = await context.Menus.FirstOrDefaultAsync(m => m.MenuCode == "ADMIN_USERS");
-        if (menu is null) return;
+        var menu = await context.Menus.Include(m => m.MenuPermissions).FirstOrDefaultAsync(m => m.MenuCode == "ADMIN_USERS");
+        if (menu is not null)
+        {
+            context.MenuPermissions.RemoveRange(menu.MenuPermissions);
+            context.Menus.Remove(menu);
+        }
 
-        var knownOldNames = new[] { "User / Role / Permission", "Quản lý tài khoản" };
-        if (!knownOldNames.Contains(menu.MenuName)) return;
+        var permission = await context.Permissions.FirstOrDefaultAsync(p => p.PermissionCode == "page.admin.users");
+        if (permission is not null)
+        {
+            context.MenuPermissions.RemoveRange(await context.MenuPermissions.Where(mp => mp.PermissionId == permission.Id).ToListAsync());
+            context.RolePermissions.RemoveRange(await context.RolePermissions.Where(rp => rp.PermissionId == permission.Id).ToListAsync());
+            context.Permissions.Remove(permission);
+        }
 
-        menu.MenuName = "Tài khoản";
-        menu.UpdatedAt = now;
-        await context.SaveChangesAsync();
+        if (menu is not null || permission is not null) await context.SaveChangesAsync();
     }
 
     // Việt hoá tên menu seed cũ còn là tiếng Anh/lẫn Anh-Việt (vd "Dashboard", "Audit Log",

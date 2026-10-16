@@ -42,7 +42,7 @@ public class AttendanceNotesController : ControllerBase
     {
         try
         {
-            return Ok(await _service.CreateAsync(_currentUserService.EmployeeCode!, request));
+            return Ok(await _service.CreateAsync(_currentUserService.EmployeeCode, request));
         }
         catch (InvalidOperationException ex)
         {
@@ -56,7 +56,7 @@ public class AttendanceNotesController : ControllerBase
     {
         try
         {
-            await _service.RevokeAsync(id, _currentUserService.EmployeeCode!);
+            await _service.RevokeAsync(id, _currentUserService.EmployeeCode);
             return NoContent();
         }
         catch (InvalidOperationException ex)

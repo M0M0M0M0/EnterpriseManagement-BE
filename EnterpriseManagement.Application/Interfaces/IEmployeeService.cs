@@ -6,7 +6,7 @@ public interface IEmployeeService
 {
     Task<IEnumerable<EmployeeDto>> GetAllAsync();
     Task<EmployeeDto?> GetByCodeAsync(string employeeCode);
-    Task<EmployeeDto> CreateAsync(CreateEmployeeRequest request);
+    Task<CreateEmployeeResult> CreateAsync(CreateEmployeeRequest request);
     Task<IEnumerable<EmployeeDto>> GetTeamAsync(string managerEmployeeCode);
     Task<IEnumerable<EmployeeDto>> GetTeamRecursiveAsync(string managerEmployeeCode);
     Task<IEnumerable<OrgTreeNodeDto>> GetOrgTreeAsync(string requesterEmployeeCode, bool isAdmin);

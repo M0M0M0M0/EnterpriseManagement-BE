@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace EnterpriseManagement.Api.Controllers;
 
-// Hộp thông báo của chính người đăng nhập. Tài khoản không có hồ sơ nhân viên (vd admin) nhận danh sách rỗng.
+// Hộp thông báo của chính người đăng nhập (mọi tài khoản đều có hồ sơ nhân viên, kể cả admin).
 [ApiController]
 [Route("api/notifications")]
 [Authorize]
@@ -23,18 +23,18 @@ public class NotificationsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<NotificationDto>>> GetList(
         [FromQuery] bool unreadOnly = false, [FromQuery] int take = 50, [FromQuery] long? beforeId = null) =>
-        Ok(await _service.GetListAsync(_currentUserService.EmployeeCode!, unreadOnly, take, beforeId));
+        Ok(await _service.GetListAsync(_currentUserService.EmployeeCode, unreadOnly, take, beforeId));
 
     [HttpGet("unread-count")]
     public async Task<ActionResult<UnreadCountDto>> GetUnreadCount() =>
-        Ok(new UnreadCountDto { Count = await _service.GetUnreadCountAsync(_currentUserService.EmployeeCode!) });
+        Ok(new UnreadCountDto { Count = await _service.GetUnreadCountAsync(_currentUserService.EmployeeCode) });
 
     [HttpPut("{id}/read")]
     public async Task<IActionResult> MarkRead(long id)
     {
         try
         {
-            await _service.MarkReadAsync(_currentUserService.EmployeeCode!, id);
+            await _service.MarkReadAsync(_currentUserService.EmployeeCode, id);
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -46,7 +46,7 @@ public class NotificationsController : ControllerBase
     [HttpPut("read-all")]
     public async Task<IActionResult> MarkAllRead()
     {
-        await _service.MarkAllReadAsync(_currentUserService.EmployeeCode!);
+        await _service.MarkAllReadAsync(_currentUserService.EmployeeCode);
         return NoContent();
     }
 
@@ -56,7 +56,7 @@ public class NotificationsController : ControllerBase
     {
         try
         {
-            await _service.RegisterDeviceTokenAsync(_currentUserService.EmployeeCode!, request);
+            await _service.RegisterDeviceTokenAsync(_currentUserService.EmployeeCode, request);
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -69,7 +69,7 @@ public class NotificationsController : ControllerBase
     [HttpDelete("device-token")]
     public async Task<IActionResult> UnregisterDeviceToken([FromQuery] string token)
     {
-        await _service.UnregisterDeviceTokenAsync(_currentUserService.EmployeeCode!, token);
+        await _service.UnregisterDeviceTokenAsync(_currentUserService.EmployeeCode, token);
         return NoContent();
     }
 }

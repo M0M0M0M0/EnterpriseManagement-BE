@@ -372,6 +372,7 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
@@ -412,12 +413,19 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Property<long>("PositionId")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("TracksAttendance")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.HasIndex("EmployeeCode")
                         .IsUnique();
@@ -456,6 +464,10 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("RoleCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -686,12 +698,7 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<long?>("EmployeeId")
+                    b.Property<long>("EmployeeId")
                         .HasColumnType("bigint");
 
                     b.Property<bool>("IsActive")
@@ -715,10 +722,8 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Email")
+                    b.HasIndex("EmployeeId")
                         .IsUnique();
-
-                    b.HasIndex("EmployeeId");
 
                     b.HasIndex("Username")
                         .IsUnique();
@@ -1297,9 +1302,10 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Identity.User", b =>
                 {
                     b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Employee")
-                        .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .WithOne("User")
+                        .HasForeignKey("EnterpriseManagement.Domain.Entities.Identity.User", "EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Employee");
                 });
@@ -1447,6 +1453,8 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.HR.Employee", b =>
                 {
                     b.Navigation("Subordinates");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.HR.Position", b =>

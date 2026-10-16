@@ -90,12 +90,15 @@ dotnet run
   tự động tạo:
   - 3 role: `ADMIN`, `MANAGER`, `EMPLOYEE`
   - 1 tài khoản admin: username `admin` / password `admin`
-    (mật khẩu yếu, chỉ dùng để dev local — không dùng ngoài môi trường thật)
+    (mật khẩu yếu, chỉ dùng để dev local — không dùng ngoài môi trường thật).
+    Admin cũng có **hồ sơ nhân viên** mã `ADMIN` (phòng ban `SYS` "Quản trị hệ thống",
+    chức vụ `SYSADMIN`) và là **tài khoản hệ thống không chấm công**
+    (`Employees.TracksAttendance = false`): không bị tính vắng mặt, không nhận nhắc
+    chấm công, không nằm trong bảng công/nghỉ phép, không chọn được làm quản lý/trưởng phòng.
 - **Cũng lần chạy đầu tiên** (khi bảng `Menus` đang rỗng), `MenuSeeder` tự
   seed 18 Permission + Menu + gán vào 3 role, khớp với sidebar hiện tại. Đây
   là dữ liệu cho tính năng Role/Permission/Menu — Admin có thể sửa qua màn
-  hình **User/Role/Permission** và **System Administration** sau khi đăng
-  nhập, không cần đụng vào code.
+  hình **System Administration** sau khi đăng nhập, không cần đụng vào code.
 
 Không cần chạy thêm lệnh seed riêng nào — seed tự chạy mỗi lần start API,
 và chỉ tạo dữ liệu khi bảng đang rỗng nên chạy lại nhiều lần cũng an toàn.
@@ -152,6 +155,35 @@ npm run dev
 - App chạy tại `http://localhost:5173`
 - Đăng nhập bằng `admin` / `admin` ở `/login` — Employee/Manager (tạo qua
   màn hình Admin sau khi đăng nhập) cũng đăng nhập chung ở đây.
+
+## Hồ sơ nhân viên = tài khoản đăng nhập
+
+Từ migration `MergeEmployeeAndUser`, mỗi người có **đúng 1 hồ sơ nhân viên + đúng 1 tài
+khoản** (`Users.EmployeeId` bắt buộc, duy nhất; email chỉ nằm ở `Employees.Email`, bắt buộc,
+duy nhất).
+
+- **Tạo nhân viên = tạo tài khoản**: màn **Quản lý nhân viên** (`POST /api/employees`) nhận
+  thêm `username`, `email`, `roleCode` (bỏ trống = vai trò mặc định của chức vụ
+  `Positions.RoleCode`, không có thì `EMPLOYEE`) và trả về **mật khẩu sinh ngẫu nhiên một lần**.
+- **Sửa** (`PUT /api/employees/{code}`): sửa hồ sơ kèm `email` và `roleCodes`.
+- **Cho nghỉ việc** (`PUT /api/employees/{code}/active` `false`) = trạng thái `Resigned` + khoá
+  tài khoản; **Phục hồi** (`true`) = `Active` + mở tài khoản. Khoá đăng nhập tạm (không nghỉ việc),
+  đặt lại mật khẩu, đổi vai trò vẫn ở `/api/users/{username}/active|reset-password|roles`.
+- **Không còn trang/menu "Tài khoản"** (`/admin/users`, permission `page.admin.users` đã bị xoá);
+  `POST /api/users` và `PUT /api/users/{username}` đã bỏ.
+
+DB đã có dữ liệu từ trước cần chạy migration (từ thư mục `EnterpriseManagement-Backend`, **tắt
+backend trước**, nên sao lưu DB trước):
+
+```bash
+dotnet ef database update --project EnterpriseManagement.Infrastructure --startup-project EnterpriseManagement.Api
+```
+
+Migration tự: tạo hồ sơ `ADMIN` cho tài khoản `admin`; tạo tài khoản **đang khoá** (username = mã
+nhân viên viết thường) cho nhân viên chưa có tài khoản — Admin đặt lại mật khẩu rồi mở khoá khi cần;
+lấy email tài khoản làm email hồ sơ. Nếu có nhân viên đang gắn **nhiều** tài khoản, migration
+**dừng** và báo tên nhân viên — xoá/gộp tay cho còn 1 tài khoản rồi chạy lại. Mật khẩu các tài
+khoản đã có không bị đổi.
 
 Frontend gọi API qua đường dẫn tương đối `/api`, được Vite tự động proxy
 sang `http://localhost:5068` (cấu hình trong `vite.config.ts`, áp dụng cho cả
@@ -241,9 +273,9 @@ Hệ thống **không có role HR cố định trong code**. Các chức năng H
    - `attendance.adjustment.apply`: áp dụng điều chỉnh công sau khi Manager đã duyệt
    - `employee.view.all`: để chọn nhân viên trong màn hình ghi chú
    - Permission trang (hiện menu): `page.hr.attendance`, `page.hr.attendance-notes`, `page.hr.adjustments`, `page.hr.leave-returns`
-3. **Tài khoản → Sửa** tài khoản của nhân sự (hoặc tạo tài khoản mới với role vừa tạo) để gán role. Vai trò mới có hiệu lực ở lần đăng nhập kế tiếp.
+3. **Quản lý nhân viên → Sửa** nhân sự đó và chọn thêm role vừa tạo ở phần Vai trò (hoặc tạo nhân viên mới với role đó). Vai trò mới có hiệu lực ở lần đăng nhập kế tiếp.
 
-Tài khoản HR phải gắn với một hồ sơ nhân viên (để hệ thống biết ai đang xử lý). Người dùng không được xử lý yêu cầu hay ghi chú về chính mình.
+Mọi tài khoản đều gắn với một hồ sơ nhân viên (để hệ thống biết ai đang xử lý). Người dùng không được xử lý yêu cầu hay ghi chú về chính mình.
 
 Luồng điều chỉnh công: nhân viên gửi → Manager trực tiếp duyệt (xác nhận có mặt) → người có quyền `attendance.adjustment.apply` áp dụng.
 Luồng đi làm lại: nhân viên chọn ngày và buổi → Manager duyệt → buổi chưa bắt đầu có hiệu lực ngay, buổi đã bắt đầu chờ người có quyền `attendance.note.manage` xác nhận.

@@ -9,4 +9,10 @@ public class UpdateEmployeeRequest
     public string DepartmentCode { get; set; } = string.Empty;
     public string PositionCode { get; set; } = string.Empty;
     public string? ManagerCode { get; set; }
+
+    // Tuỳ chọn: null = giữ nguyên email hiện tại.
+    public string? Email { get; set; }
+
+    // Tuỳ chọn: null = giữ nguyên vai trò; nếu gửi thì phải có ít nhất 1 mã vai trò tồn tại.
+    public List<string>? RoleCodes { get; set; }
 }

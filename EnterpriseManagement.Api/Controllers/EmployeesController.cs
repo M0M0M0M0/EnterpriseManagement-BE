@@ -37,10 +37,17 @@ public class EmployeesController : ControllerBase
 
     [HttpPost]
     [RequirePermission("employee.manage")]
-    public async Task<ActionResult<EmployeeDto>> Create(CreateEmployeeRequest request)
+    public async Task<ActionResult<CreateEmployeeResult>> Create(CreateEmployeeRequest request)
     {
-        var created = await _employeeService.CreateAsync(request);
-        return CreatedAtAction(nameof(GetByCode), new { employeeCode = created.EmployeeCode }, created);
+        try
+        {
+            // Tạo hồ sơ + tài khoản; mật khẩu sinh chỉ trả về đúng lần này.
+            return Ok(await _employeeService.CreateAsync(request));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpGet("team/{managerEmployeeCode}")]
@@ -79,7 +86,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var tree = await _employeeService.GetOrgTreeAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
+            var tree = await _employeeService.GetOrgTreeAsync(_currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"));
             return Ok(tree);
         }
         catch (InvalidOperationException ex)
@@ -99,7 +106,7 @@ public class EmployeesController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return ErrorResult(employeeCode, ex);
         }
     }
 
@@ -114,7 +121,13 @@ public class EmployeesController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return ErrorResult(employeeCode, ex);
         }
     }
+
+    // Không tìm thấy chính nhân viên đang sửa -> 404; còn lại là lỗi dữ liệu nhập -> 400.
+    private ActionResult ErrorResult(string employeeCode, InvalidOperationException ex) =>
+        ex.Message == $"Không tìm thấy nhân viên có mã '{employeeCode}'."
+            ? NotFound(new { message = ex.Message })
+            : BadRequest(new { message = ex.Message });
 }

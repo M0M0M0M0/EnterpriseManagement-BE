@@ -9,17 +9,20 @@ public class PositionService : IPositionService
 {
     private readonly IPositionRepository _positionRepository;
     private readonly IPositionSalaryRepository _positionSalaryRepository;
+    private readonly IRoleRepository _roleRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
 
     public PositionService(
         IPositionRepository positionRepository,
         IPositionSalaryRepository positionSalaryRepository,
+        IRoleRepository roleRepository,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService)
     {
         _positionRepository = positionRepository;
         _positionSalaryRepository = positionSalaryRepository;
+        _roleRepository = roleRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
     }
@@ -52,6 +55,7 @@ public class PositionService : IPositionService
             PositionCode = request.PositionCode,
             PositionName = request.PositionName,
             Description = request.Description,
+            RoleCode = await ResolveRoleCodeAsync(request.RoleCode),
             IsActive = true,
             CreatedAt = VietnamClock.Now
         };
@@ -98,6 +102,10 @@ public class PositionService : IPositionService
 
         position.PositionName = request.PositionName;
         position.Description = request.Description;
+        if (request.RoleCode is not null)
+        {
+            position.RoleCode = await ResolveRoleCodeAsync(request.RoleCode);
+        }
         position.UpdatedAt = VietnamClock.Now;
 
         await _positionRepository.SaveChangesAsync();
@@ -121,11 +129,22 @@ public class PositionService : IPositionService
         return ToDto(position);
     }
 
+    // Rỗng = không có vai trò mặc định; có giá trị thì phải là mã vai trò đang tồn tại.
+    private async Task<string?> ResolveRoleCodeAsync(string? roleCode)
+    {
+        if (string.IsNullOrWhiteSpace(roleCode)) return null;
+
+        var role = await _roleRepository.GetByCodeAsync(roleCode.Trim())
+            ?? throw new InvalidOperationException($"Không tìm thấy vai trò có mã '{roleCode}'.");
+        return role.RoleCode;
+    }
+
     private static PositionDto ToDto(Position position) => new()
     {
         PositionCode = position.PositionCode,
         PositionName = position.PositionName,
         Description = position.Description,
+        RoleCode = position.RoleCode,
         IsActive = position.IsActive,
         StandardSalary = position.Salary?.StandardSalary
     };

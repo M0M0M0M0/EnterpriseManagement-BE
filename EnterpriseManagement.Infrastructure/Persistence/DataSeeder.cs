@@ -1,12 +1,19 @@
 using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.Interfaces;
+using EnterpriseManagement.Domain.Entities.HR;
 using EnterpriseManagement.Domain.Entities.Identity;
+using EnterpriseManagement.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseManagement.Infrastructure.Persistence;
 
 public static class DataSeeder
 {
+    // Hồ sơ của tài khoản hệ thống admin (khớp migration MergeEmployeeAndUser).
+    public const string SystemDepartmentCode = "SYS";
+    public const string SystemPositionCode = "SYSADMIN";
+    public const string AdminEmployeeCode = "ADMIN";
+
     public static async Task SeedAsync(ApplicationDbContext context, IPasswordHasher passwordHasher)
     {
         if (!await context.Roles.AnyAsync())
@@ -39,16 +46,62 @@ public static class DataSeeder
         if (!await context.Users.AnyAsync())
         {
             var adminRole = await context.Roles.FirstAsync(r => r.RoleCode == "ADMIN");
+            var now = VietnamClock.Now;
+
+            // Admin cũng có hồ sơ nhân viên (tài khoản hệ thống, không chấm công) vì mọi tài khoản phải gắn 1 hồ sơ.
+            var department = await context.Departments.FirstOrDefaultAsync(d => d.DepartmentCode == SystemDepartmentCode);
+            if (department is null)
+            {
+                department = new Department
+                {
+                    DepartmentCode = SystemDepartmentCode,
+                    DepartmentName = "Quản trị hệ thống",
+                    Description = "Phòng ban chứa tài khoản hệ thống (không chấm công).",
+                    IsActive = true,
+                    CreatedAt = now
+                };
+                context.Departments.Add(department);
+            }
+
+            var position = await context.Positions.FirstOrDefaultAsync(p => p.PositionCode == SystemPositionCode);
+            if (position is null)
+            {
+                position = new Position
+                {
+                    PositionCode = SystemPositionCode,
+                    PositionName = "Quản trị viên",
+                    RoleCode = "ADMIN",
+                    IsActive = true,
+                    CreatedAt = now
+                };
+                context.Positions.Add(position);
+            }
+
+            var employee = new Employee
+            {
+                EmployeeCode = AdminEmployeeCode,
+                FirstName = "Quản trị",
+                LastName = "Hệ thống",
+                Email = "admin@enterprise.local",
+                Department = department,
+                Position = position,
+                HireDate = VietnamClock.Today,
+                EmploymentStatus = EmploymentStatus.Active,
+                TracksAttendance = false,
+                CreatedAt = now
+            };
+
             var admin = new User
             {
+                Employee = employee,
                 Username = "admin",
-                Email = "admin@enterprise.local",
                 PasswordHash = passwordHasher.Hash("admin"),
                 IsActive = true,
-                CreatedAt = VietnamClock.Now
+                CreatedAt = now
             };
-            admin.UserRoles.Add(new UserRole { Role = adminRole, AssignedAt = VietnamClock.Now });
+            admin.UserRoles.Add(new UserRole { Role = adminRole, AssignedAt = now });
 
+            context.Employees.Add(employee);
             context.Users.Add(admin);
             await context.SaveChangesAsync();
         }

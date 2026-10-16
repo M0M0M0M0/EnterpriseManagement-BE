@@ -44,17 +44,20 @@ public class NotificationRepository : INotificationRepository
     public async Task<List<long>> GetEmployeeIdsWithPermissionAsync(string permissionCode) =>
         await _context.UserRoles
             .Where(ur => ur.User.IsActive
-                && ur.User.EmployeeId != null
                 && ur.Role.IsActive
                 && ur.Role.RolePermissions.Any(rp => rp.Permission.IsActive && rp.Permission.PermissionCode == permissionCode))
-            .Select(ur => ur.User.EmployeeId!.Value)
+            .Select(ur => ur.User.EmployeeId)
             .Distinct()
             .ToListAsync();
 
+    // Người cần nhắc chấm công: tài khoản đang mở, còn làm việc và có chấm công (bỏ tài khoản hệ thống như admin).
     public async Task<List<long>> GetActiveEmployeeIdsWithAccountAsync() =>
         await _context.Users
-            .Where(u => u.IsActive && u.EmployeeId != null && u.Employee!.EmploymentStatus != EmploymentStatus.Terminated)
-            .Select(u => u.EmployeeId!.Value)
+            .Where(u => u.IsActive
+                && u.Employee.TracksAttendance
+                && u.Employee.EmploymentStatus != EmploymentStatus.Terminated
+                && u.Employee.EmploymentStatus != EmploymentStatus.Resigned)
+            .Select(u => u.EmployeeId)
             .Distinct()
             .ToListAsync();
 

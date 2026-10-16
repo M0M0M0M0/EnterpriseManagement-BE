@@ -47,6 +47,13 @@ public class DepartmentService : IDepartmentService
             throw new InvalidOperationException($"Mã phòng ban '{request.DepartmentCode}' đã tồn tại.");
         }
 
+        if (request.ManagerId is not null)
+        {
+            var head = await _employeeRepository.GetByIdAsync(request.ManagerId.Value)
+                ?? throw new InvalidOperationException("Không tìm thấy nhân viên được chọn làm trưởng phòng.");
+            EnsureCanBeHead(head);
+        }
+
         var department = new Department
         {
             DepartmentCode = request.DepartmentCode,
@@ -102,6 +109,7 @@ public class DepartmentService : IDepartmentService
             {
                 var manager = await _employeeRepository.GetByEmployeeCodeAsync(request.ManagerCode)
                     ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{request.ManagerCode}'.");
+                EnsureCanBeHead(manager);
                 department.ManagerId = manager.Id;
             }
         }
@@ -129,6 +137,15 @@ public class DepartmentService : IDepartmentService
         await LogAsync(isActive ? "Activate" : "Deactivate", department.Id);
 
         return ToDto(department);
+    }
+
+    // Tài khoản hệ thống (không chấm công, vd admin) không được làm trưởng phòng.
+    private static void EnsureCanBeHead(Employee employee)
+    {
+        if (!employee.TracksAttendance)
+        {
+            throw new InvalidOperationException("Tài khoản hệ thống không thể được chọn làm trưởng phòng.");
+        }
     }
 
     private static DepartmentDto ToDto(Department department) => new()

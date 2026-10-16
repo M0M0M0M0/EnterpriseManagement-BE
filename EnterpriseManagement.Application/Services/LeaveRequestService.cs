@@ -48,6 +48,11 @@ public class LeaveRequestService : ILeaveRequestService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
+        if (!employee.TracksAttendance)
+        {
+            throw new InvalidOperationException("Tài khoản hệ thống không dùng chức năng nghỉ phép.");
+        }
+
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy loại nghỉ có mã '{request.LeaveTypeCode}'.");
 

@@ -19,6 +19,9 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.User)
+                .ThenInclude(u => u!.UserRoles)
+                    .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(e => e.Id == id);
 
     public async Task<IEnumerable<Employee>> GetAllAsync() =>
@@ -26,6 +29,9 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.User)
+                .ThenInclude(u => u!.UserRoles)
+                    .ThenInclude(ur => ur.Role)
             .ToListAsync();
 
     public async Task<Employee?> GetByEmployeeCodeAsync(string employeeCode) =>
@@ -33,13 +39,23 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.User)
+                .ThenInclude(u => u!.UserRoles)
+                    .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(e => e.EmployeeCode == employeeCode);
+
+    // So email không phân biệt hoa thường (collation mặc định của SQL Server), dùng để chặn trùng email.
+    public async Task<Employee?> GetByEmailAsync(string email) =>
+        await _context.Employees.FirstOrDefaultAsync(e => e.Email == email);
 
     public async Task<IEnumerable<Employee>> GetByManagerIdAsync(long managerId) =>
         await _context.Employees
             .Include(e => e.Department)
             .Include(e => e.Position)
             .Include(e => e.Manager)
+            .Include(e => e.User)
+                .ThenInclude(u => u!.UserRoles)
+                    .ThenInclude(ur => ur.Role)
             .Where(e => e.ManagerId == managerId)
             .ToListAsync();
 

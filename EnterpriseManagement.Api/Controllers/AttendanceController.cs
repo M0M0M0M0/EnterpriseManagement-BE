@@ -78,7 +78,7 @@ public class AttendanceController : ControllerBase
                 PhotoExtension = extension ?? ".jpg"
             };
 
-            var result = await _attendanceService.PunchAsync(_currentUserService.EmployeeCode!, request);
+            var result = await _attendanceService.PunchAsync(_currentUserService.EmployeeCode, request);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -213,7 +213,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            var result = await _attendanceAdjustmentService.SubmitAsync(request, _currentUserService.EmployeeCode!);
+            var result = await _attendanceAdjustmentService.SubmitAsync(request, _currentUserService.EmployeeCode);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -226,7 +226,7 @@ public class AttendanceController : ControllerBase
     [RequirePermission("attendance.adjustment.self")]
     public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetMyAdjustments()
     {
-        var adjustments = await _attendanceAdjustmentService.GetByEmployeeAsync(_currentUserService.EmployeeCode!);
+        var adjustments = await _attendanceAdjustmentService.GetByEmployeeAsync(_currentUserService.EmployeeCode);
         return Ok(adjustments);
     }
 
@@ -234,7 +234,7 @@ public class AttendanceController : ControllerBase
     [RequirePermission("attendance.adjustment.view")]
     public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetPendingAdjustments()
     {
-        var pending = await _attendanceAdjustmentService.GetPendingAsync(_currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
+        var pending = await _attendanceAdjustmentService.GetPendingAsync(_currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"));
         return Ok(pending);
     }
 
@@ -244,7 +244,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            var result = await _attendanceAdjustmentService.ApproveAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
+            var result = await _attendanceAdjustmentService.ApproveAsync(id, _currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -259,7 +259,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            var result = await _attendanceAdjustmentService.RejectAsync(id, _currentUserService.EmployeeCode!, _currentUserService.IsInRole("ADMIN"));
+            var result = await _attendanceAdjustmentService.RejectAsync(id, _currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"));
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -282,7 +282,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            return Ok(await _attendanceAdjustmentService.ApplyAsync(id, _currentUserService.EmployeeCode!));
+            return Ok(await _attendanceAdjustmentService.ApplyAsync(id, _currentUserService.EmployeeCode));
         }
         catch (InvalidOperationException ex)
         {
@@ -296,7 +296,7 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            return Ok(await _attendanceAdjustmentService.RejectProcessingAsync(id, _currentUserService.EmployeeCode!, request.RejectionReason));
+            return Ok(await _attendanceAdjustmentService.RejectProcessingAsync(id, _currentUserService.EmployeeCode, request.RejectionReason));
         }
         catch (InvalidOperationException ex)
         {

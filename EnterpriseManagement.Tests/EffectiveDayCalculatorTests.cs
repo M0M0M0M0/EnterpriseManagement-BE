@@ -261,4 +261,42 @@ public class EffectiveDayCalculatorTests
         var day = new EffectiveDay { Morning = am, Afternoon = pm };
         Assert.Equal(expected, day.OverallStatus);
     }
+
+    // ---- Nhân viên không chấm công (tài khoản hệ thống như admin) ----
+
+    private static EffectiveInputs NonTrackingInputs() => new()
+    {
+        HireDates = new Dictionary<long, DateOnly?> { [Emp] = new DateOnly(2026, 1, 1) },
+        NonTrackingEmployeeIds = new HashSet<long> { Emp }
+    };
+
+    [Fact]
+    public void NonTracking_PastWorkdayWithoutData_IsNotAbsent()
+    {
+        var day = Day(NonTrackingInputs(), Mon);
+        Assert.Equal(SessionStatus.None, day.Morning);
+        Assert.Equal(SessionStatus.None, day.Afternoon);
+        Assert.Equal(SessionSource.None, day.MorningSource);
+        Assert.Equal("None", day.OverallStatus);
+        Assert.False(day.HasData);
+    }
+
+    [Fact]
+    public void NonTracking_RealPunchIsStillShown()
+    {
+        var inputs = NonTrackingInputs();
+        inputs.Punches.Add(PunchAt(Mon, 8, 5));
+        var day = Day(inputs, Mon);
+        Assert.Equal(SessionStatus.OnTime, day.Morning);
+        Assert.Equal(SessionSource.Attendance, day.MorningSource);
+        Assert.True(day.HasData);
+    }
+
+    [Fact]
+    public void NonTracking_OnlyAffectsListedEmployee()
+    {
+        var inputs = NonTrackingInputs();
+        inputs.HireDates[2] = new DateOnly(2026, 1, 1);
+        Assert.Equal(SessionStatus.Absent, EffectiveDayCalculator.Compute(2, Mon, inputs, Today).Morning);
+    }
 }

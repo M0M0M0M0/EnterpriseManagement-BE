@@ -28,13 +28,10 @@ public class JwtTokenGenerator : IJwtTokenGenerator
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Email, user.Email)
+            new(ClaimTypes.Email, user.Employee.Email),
+            // Mọi tài khoản đều gắn hồ sơ nhân viên (kể cả admin) nên luôn có claim này.
+            new("employeeCode", user.Employee.EmployeeCode)
         };
-
-        if (user.EmployeeId.HasValue && user.Employee is not null)
-        {
-            claims.Add(new Claim("employeeCode", user.Employee.EmployeeCode));
-        }
 
         claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
         claims.AddRange(permissions.Distinct().Select(code => new Claim(AppClaimTypes.Permission, code)));

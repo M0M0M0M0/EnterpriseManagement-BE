@@ -66,11 +66,13 @@ public class EffectiveAttendanceRepository : IEffectiveAttendanceRepository
             .Select(a => new Punch(a.EmployeeId, a.AttendanceDate, a.CheckInTime!.Value, a.CheckOutTime, a.WorkingHours))
             .ToListAsync();
 
-        var hireDates = await _context.Employees
+        var employeeRows = await _context.Employees
             .AsNoTracking()
             .Where(e => ids.Contains(e.Id))
-            .Select(e => new { e.Id, e.HireDate })
-            .ToDictionaryAsync(e => e.Id, e => (DateOnly?)e.HireDate);
+            .Select(e => new { e.Id, e.HireDate, e.TracksAttendance })
+            .ToListAsync();
+        var hireDates = employeeRows.ToDictionary(e => e.Id, e => (DateOnly?)e.HireDate);
+        var nonTracking = employeeRows.Where(e => !e.TracksAttendance).Select(e => e.Id).ToHashSet();
 
         return new EffectiveInputs
         {
@@ -78,7 +80,8 @@ public class EffectiveAttendanceRepository : IEffectiveAttendanceRepository
             Returns = returns,
             Notes = notes,
             Punches = punches,
-            HireDates = hireDates
+            HireDates = hireDates,
+            NonTrackingEmployeeIds = nonTracking
         };
     }
 }

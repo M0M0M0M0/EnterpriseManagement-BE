@@ -113,8 +113,7 @@ public class NotificationService : INotificationService
 
     public async Task<IEnumerable<NotificationDto>> GetListAsync(string employeeCode, bool unreadOnly, int take, long? beforeId)
     {
-        var employee = await FindEmployeeAsync(employeeCode);
-        if (employee is null) return Array.Empty<NotificationDto>();
+        var employee = await GetEmployeeAsync(employeeCode);
 
         var items = await _repository.GetListAsync(employee.Id, unreadOnly, Math.Clamp(take, 1, 100), beforeId);
         return items.Select(n => new NotificationDto
@@ -132,14 +131,13 @@ public class NotificationService : INotificationService
 
     public async Task<int> GetUnreadCountAsync(string employeeCode)
     {
-        var employee = await FindEmployeeAsync(employeeCode);
-        return employee is null ? 0 : await _repository.CountUnreadAsync(employee.Id);
+        var employee = await GetEmployeeAsync(employeeCode);
+        return await _repository.CountUnreadAsync(employee.Id);
     }
 
     public async Task MarkReadAsync(string employeeCode, long id)
     {
-        var employee = await FindEmployeeAsync(employeeCode)
-            ?? throw new InvalidOperationException("Tài khoản này không có hồ sơ nhân viên.");
+        var employee = await GetEmployeeAsync(employeeCode);
 
         var notification = await _repository.GetOwnedAsync(id, employee.Id)
             ?? throw new InvalidOperationException("Không tìm thấy thông báo.");
@@ -154,16 +152,13 @@ public class NotificationService : INotificationService
 
     public async Task MarkAllReadAsync(string employeeCode)
     {
-        var employee = await FindEmployeeAsync(employeeCode);
-        if (employee is null) return;
-
+        var employee = await GetEmployeeAsync(employeeCode);
         await _repository.MarkAllReadAsync(employee.Id, VietnamClock.Now);
     }
 
     public async Task RegisterDeviceTokenAsync(string employeeCode, RegisterDeviceTokenRequest request)
     {
-        var employee = await FindEmployeeAsync(employeeCode)
-            ?? throw new InvalidOperationException("Tài khoản này không có hồ sơ nhân viên nên không nhận thông báo.");
+        var employee = await GetEmployeeAsync(employeeCode);
 
         var token = request.Token?.Trim() ?? string.Empty;
         if (token.Length == 0 || token.Length > 512)
@@ -177,12 +172,14 @@ public class NotificationService : INotificationService
 
     public async Task UnregisterDeviceTokenAsync(string employeeCode, string token)
     {
-        var employee = await FindEmployeeAsync(employeeCode);
-        if (employee is null || string.IsNullOrWhiteSpace(token)) return;
+        if (string.IsNullOrWhiteSpace(token)) return;
+        var employee = await GetEmployeeAsync(employeeCode);
 
         await _repository.RemoveDeviceTokenAsync(token.Trim(), employee.Id);
     }
 
-    private async Task<Employee?> FindEmployeeAsync(string? employeeCode) =>
-        string.IsNullOrWhiteSpace(employeeCode) ? null : await _employeeRepository.GetByEmployeeCodeAsync(employeeCode);
+    // Mọi tài khoản đều có hồ sơ nhân viên; không tìm thấy nghĩa là token hỏng/hồ sơ đã bị xoá.
+    private async Task<Employee> GetEmployeeAsync(string employeeCode) =>
+        await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 }

@@ -9,6 +9,8 @@ namespace EnterpriseManagement.Api.Controllers;
 [ApiController]
 [Route("api/users")]
 [RequirePermission("user.manage")]
+// Tài khoản gắn 1-1 với hồ sơ nhân viên: tạo tài khoản và đổi email nằm ở POST/PUT /api/employees.
+// Ở đây chỉ còn khoá/mở đăng nhập, đặt lại mật khẩu và đổi vai trò.
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -23,33 +25,6 @@ public class UsersController : ControllerBase
     {
         var users = await _userService.GetAllAsync();
         return Ok(users);
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<CreateUserResult>> Create(CreateUserRequest request)
-    {
-        try
-        {
-            var created = await _userService.CreateAsync(request);
-            return Ok(created);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-
-    [HttpPut("{username}")]
-    public async Task<ActionResult<UserDto>> Update(string username, UpdateUserRequest request)
-    {
-        try
-        {
-            return Ok(await _userService.UpdateAsync(username, request));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
     }
 
     [HttpPut("{username}/roles")]
@@ -75,12 +50,12 @@ public class UsersController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            return NotFound(new { message = ex.Message });
+            return BadRequest(new { message = ex.Message });
         }
     }
 
     [HttpPost("{username}/reset-password")]
-    public async Task<ActionResult<CreateUserResult>> ResetPassword(string username)
+    public async Task<ActionResult<ResetPasswordResult>> ResetPassword(string username)
     {
         try
         {

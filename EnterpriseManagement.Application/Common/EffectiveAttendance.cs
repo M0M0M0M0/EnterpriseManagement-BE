@@ -27,6 +27,9 @@ public sealed class EffectiveInputs
 
     // Ngày vào làm của từng nhân viên; ngày làm việc trước ngày này không bị tính là vắng.
     public Dictionary<long, DateOnly?> HireDates { get; init; } = new();
+
+    // Nhân viên không chấm công (tài khoản hệ thống như admin): ngày không có dữ liệu không bị tính là vắng.
+    public HashSet<long> NonTrackingEmployeeIds { get; init; } = new();
 }
 
 // ---- Kết quả ----
@@ -214,6 +217,9 @@ public static class EffectiveDayCalculator
         }
 
         // 5. Không có dữ liệu: ngày làm việc đã qua (kể từ ngày vào làm) mà không có gì thì là vắng không phép.
+        //    Riêng người không chấm công (tài khoản hệ thống) thì không bao giờ bị tính vắng.
+        if (inputs.NonTrackingEmployeeIds.Contains(employeeId)) return (SessionStatus.None, SessionSource.None, null);
+
         inputs.HireDates.TryGetValue(employeeId, out var hireDate);
         var beforeHire = hireDate is not null && date < hireDate.Value;
         if (date < today && !beforeHire) return (SessionStatus.Absent, SessionSource.Missing, null);
