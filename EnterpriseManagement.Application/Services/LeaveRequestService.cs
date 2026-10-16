@@ -89,12 +89,16 @@ public class LeaveRequestService : ILeaveRequestService
         }
 
         // Số dư hiệu lực = số dư lưu + phần phép đã được hoàn do đi làm lại.
-        var balance = await _leaveBalanceService.GetOrCreateAsync(employee, leaveType, startDate);
-        var effectiveRemaining = balance.RemainingTime + await _leaveBalanceService.GetRefundedTimeAsync(balance);
-        if (effectiveRemaining < totalTime)
+        // Nghỉ không lương (IsPaid = false) không bị giới hạn bởi số dư phép.
+        if (leaveType.IsPaid)
         {
-            throw new InvalidOperationException(
-                $"Không đủ số dư phép: còn {effectiveRemaining} {balance.Unit}, đơn xin {totalTime} {leaveType.AccrualUnit}.");
+            var balance = await _leaveBalanceService.GetOrCreateAsync(employee, leaveType, startDate);
+            var effectiveRemaining = balance.RemainingTime + await _leaveBalanceService.GetRefundedTimeAsync(balance);
+            if (effectiveRemaining < totalTime)
+            {
+                throw new InvalidOperationException(
+                    $"Không đủ số dư phép: còn {effectiveRemaining} {balance.Unit}, đơn xin {totalTime} {leaveType.AccrualUnit}.");
+            }
         }
 
         var leaveRequest = new LeaveRequest
@@ -342,12 +346,18 @@ public class LeaveRequestService : ILeaveRequestService
 
         // Kiểm tra lại số dư ngay lúc duyệt: lúc nộp đơn chưa trừ phép nên nhiều đơn chờ duyệt cùng qua được bước kiểm tra,
         // nếu không kiểm tra lại ở đây thì duyệt hết sẽ làm số dư âm.
-        var balance = await _leaveBalanceService.GetOrCreateAsync(leaveRequest.Employee, leaveRequest.LeaveType, leaveRequest.StartDate);
-        var effectiveRemaining = balance.RemainingTime + await _leaveBalanceService.GetRefundedTimeAsync(balance);
-        if (effectiveRemaining < leaveRequest.TotalTime)
+        // Nghỉ không lương không có số dư nên không kiểm tra và không trừ.
+        var balance = leaveRequest.LeaveType.IsPaid
+            ? await _leaveBalanceService.GetOrCreateAsync(leaveRequest.Employee, leaveRequest.LeaveType, leaveRequest.StartDate)
+            : null;
+        if (balance is not null)
         {
-            throw new InvalidOperationException(
-                $"Không đủ số dư phép để duyệt đơn này (còn {effectiveRemaining}, đơn xin {leaveRequest.TotalTime}).");
+            var effectiveRemaining = balance.RemainingTime + await _leaveBalanceService.GetRefundedTimeAsync(balance);
+            if (effectiveRemaining < leaveRequest.TotalTime)
+            {
+                throw new InvalidOperationException(
+                    $"Không đủ số dư phép để duyệt đơn này (còn {effectiveRemaining}, đơn xin {leaveRequest.TotalTime}).");
+            }
         }
 
         leaveRequest.Status = LeaveRequestStatus.Approved;
@@ -356,9 +366,12 @@ public class LeaveRequestService : ILeaveRequestService
         leaveRequest.ApprovedAt = VietnamClock.Now;
         leaveRequest.UpdatedAt = VietnamClock.Now;
 
-        balance.UsedTime += leaveRequest.TotalTime;
-        balance.RemainingTime -= leaveRequest.TotalTime;
-        balance.UpdatedAt = VietnamClock.Now;
+        if (balance is not null)
+        {
+            balance.UsedTime += leaveRequest.TotalTime;
+            balance.RemainingTime -= leaveRequest.TotalTime;
+            balance.UpdatedAt = VietnamClock.Now;
+        }
 
         await _leaveRequestRepository.SaveChangesAsync();
 

@@ -34,7 +34,8 @@ public class LeaveBalanceService : ILeaveBalanceService
         // Tài khoản hệ thống không dùng nghỉ phép: không tạo số dư phép.
         if (!employee.TracksAttendance) return Array.Empty<LeaveBalanceDto>();
 
-        var leaveTypes = (await _leaveTypeRepository.GetAllAsync()).Where(lt => lt.IsActive);
+        // Loại nghỉ không lương (IsPaid = false) không có số dư: không cấp, không trừ, không hiện trong danh sách số dư.
+        var leaveTypes = (await _leaveTypeRepository.GetAllAsync()).Where(lt => lt.IsActive && lt.IsPaid);
         var now = VietnamClock.Now;
         var targetDate = year == now.Year ? now : new DateTime(year, 1, 1);
 

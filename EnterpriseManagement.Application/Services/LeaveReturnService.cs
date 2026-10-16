@@ -376,8 +376,9 @@ public class LeaveReturnService : ILeaveReturnService
         return (date, session);
     }
 
-    // Từ (ngày, buổi) bắt đầu, lấy các buổi nghỉ phép hiệu lực nối liền nhau (bỏ qua cuối tuần) cho tới khi gặp buổi đi làm.
-    // Có thể trải qua nhiều đơn nghỉ liền kề; mỗi buổi được gắn đúng với đơn đang phủ nó.
+    // Từ (ngày, buổi) bắt đầu, lấy các buổi nghỉ phép hiệu lực nối liền nhau (bỏ qua cuối tuần) cho tới khi gặp buổi đi làm
+    // HOẶC buổi thuộc một đơn nghỉ khác. Chỉ huỷ các buổi trong CÙNG MỘT đơn nghỉ với buổi bắt đầu: hai đơn nghỉ liền kề
+    // là hai đơn riêng, xin đi làm lại ở đơn trước không kéo theo huỷ đơn sau.
     private async Task<List<(DateOnly Date, DaySession Session, long LeaveRequestId, string LeaveTypeName)>> ResolveTailAsync(
         long employeeId, DateOnly fromDate, DaySession fromSession)
     {
@@ -409,6 +410,9 @@ public class LeaveReturnService : ILeaveReturnService
             }
 
             if (!covered.TryGetValue(cursor, out var info)) break;
+
+            // Gặp buổi thuộc đơn nghỉ khác thì dừng, không kéo theo đơn đó.
+            if (result.Count > 0 && info.RequestId != result[0].Item3) break;
 
             result.Add((cursor.Date, cursor.Session, info.RequestId, info.TypeName));
             cursor = cursor.Session == DaySession.Morning

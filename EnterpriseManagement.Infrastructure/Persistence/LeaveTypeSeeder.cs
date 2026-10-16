@@ -35,6 +35,17 @@ public static class LeaveTypeSeeder
                 IsPaid = true,
                 Description = "9 ngày mỗi năm (kết hôn, tang chế), không cộng dồn theo tháng, chỉ reset khi sang năm mới.",
                 IsActive = true
+            },
+            new LeaveType
+            {
+                LeaveTypeCode = "UNPAID",
+                LeaveTypeName = "Nghỉ không lương",
+                AccrualAmount = 0,
+                AccrualUnit = LeaveUnit.Days,
+                AccrualPeriod = LeaveAccrualPeriod.ProratedYearly,
+                IsPaid = false,
+                Description = "Nghỉ không hưởng lương, không giới hạn và không trừ vào số dư phép.",
+                IsActive = true
             });
 
         await context.SaveChangesAsync();
