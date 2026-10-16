@@ -15,6 +15,9 @@ public interface IAttendanceService
     Task<IEnumerable<AttendanceRecordDto>> GetAllAsync(DateOnly startDate, DateOnly endDate, string? departmentCode);
     Task<IEnumerable<AttendanceRecordDto>> GetByDepartmentAsync(string departmentCode, DateOnly startDate, DateOnly endDate);
 
+    // Chấm công của toàn bộ cấp dưới (cả cấp dưới của cấp dưới) của một quản lý, không gồm chính họ.
+    Task<IEnumerable<AttendanceRecordDto>> GetByTeamAsync(string managerEmployeeCode, DateOnly startDate, DateOnly endDate);
+
     // Trạng thái hiệu lực từng ngày (tách sáng/chiều) trong khoảng [from, to], gồm cả cuối tuần và ngày chưa có dữ liệu.
     Task<IEnumerable<AttendanceCalendarDayDto>> GetCalendarAsync(string employeeCode, DateOnly from, DateOnly to);
 

@@ -260,4 +260,36 @@ public class AttendanceService : IAttendanceService
         var days = await _effective.GetDaysWithDataAsync(byId.Keys.ToList(), startDate, endDate);
         return days.OrderBy(d => d.Date).ThenBy(d => d.EmployeeId).Select(d => AttendanceMapper.ToRecordDto(d, byId[d.EmployeeId]));
     }
+
+    public async Task<IEnumerable<AttendanceRecordDto>> GetByTeamAsync(string managerEmployeeCode, DateOnly startDate, DateOnly endDate)
+    {
+        if (endDate < startDate)
+        {
+            throw new InvalidOperationException("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu.");
+        }
+
+        var all = (await _employeeRepository.GetAllAsync()).ToList();
+        var manager = all.FirstOrDefault(e => e.EmployeeCode == managerEmployeeCode)
+            ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerEmployeeCode}'.");
+
+        // Đi xuống cây quản lý (ManagerId) lấy mọi cấp dưới; HashSet chặn vòng lặp nếu dữ liệu quản lý bị khép kín.
+        var childrenByManagerId = all.Where(e => e.ManagerId.HasValue).ToLookup(e => e.ManagerId!.Value);
+        var team = new List<Employee>();
+        var visited = new HashSet<long> { manager.Id };
+        var queue = new Queue<long>();
+        queue.Enqueue(manager.Id);
+        while (queue.Count > 0)
+        {
+            foreach (var child in childrenByManagerId[queue.Dequeue()])
+            {
+                if (!visited.Add(child.Id)) continue;
+                team.Add(child);
+                queue.Enqueue(child.Id);
+            }
+        }
+
+        var byId = team.ToDictionary(e => e.Id);
+        var days = await _effective.GetDaysWithDataAsync(byId.Keys.ToList(), startDate, endDate);
+        return days.OrderBy(d => d.Date).ThenBy(d => d.EmployeeId).Select(d => AttendanceMapper.ToRecordDto(d, byId[d.EmployeeId]));
+    }
 }

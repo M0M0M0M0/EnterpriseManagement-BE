@@ -170,6 +170,27 @@ public class AttendanceController : ControllerBase
         }
     }
 
+    // Chấm công của cấp dưới (đệ quy) của một quản lý. Chỉ xem được team của chính mình; Admin xem được mọi quản lý.
+    [HttpGet("team/{managerEmployeeCode}")]
+    [RequirePermission("attendance.view.team")]
+    public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetByTeam(
+        string managerEmployeeCode, [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
+    {
+        if (!_currentUserService.IsInRole("ADMIN") && managerEmployeeCode != _currentUserService.EmployeeCode)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            return Ok(await _attendanceService.GetByTeamAsync(managerEmployeeCode, startDate, endDate));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("department/{departmentCode}")]
     [RequirePermission("attendance.view.team")]
     public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetByDepartment(
