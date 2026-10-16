@@ -283,13 +283,21 @@ public class AttendanceService : IAttendanceService
             foreach (var child in childrenByManagerId[queue.Dequeue()])
             {
                 if (!visited.Add(child.Id)) continue;
-                team.Add(child);
+                // Người đã nghỉ việc không còn trong bảng công, nhưng vẫn đi tiếp xuống cấp dưới của họ.
+                if (child.EmploymentStatus is not (EmploymentStatus.Resigned or EmploymentStatus.Terminated)) team.Add(child);
                 queue.Enqueue(child.Id);
             }
         }
 
+        // Khoảng quá dài sẽ ra hàng nghìn dòng (mỗi người mỗi ngày); bảng công cả tháng đã là đủ dùng.
+        if (endDate.DayNumber - startDate.DayNumber > 93)
+        {
+            throw new InvalidOperationException("Chỉ xem được tối đa khoảng 3 tháng mỗi lần.");
+        }
+
+        // Mỗi cấp dưới một dòng mỗi ngày làm việc, kể cả người chưa chấm công, để quản lý thấy cả người vắng.
         var byId = team.ToDictionary(e => e.Id);
-        var days = await _effective.GetDaysWithDataAsync(byId.Keys.ToList(), startDate, endDate);
-        return days.OrderBy(d => d.Date).ThenBy(d => d.EmployeeId).Select(d => AttendanceMapper.ToRecordDto(d, byId[d.EmployeeId]));
+        var days = await _effective.GetAllWorkingDaysAsync(byId.Keys.ToList(), startDate, endDate);
+        return days.OrderBy(d => d.Date).ThenBy(d => byId[d.EmployeeId].EmployeeCode).Select(d => AttendanceMapper.ToRecordDto(d, byId[d.EmployeeId]));
     }
 }

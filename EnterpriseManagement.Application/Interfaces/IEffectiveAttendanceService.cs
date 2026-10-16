@@ -18,6 +18,10 @@ public interface IEffectiveAttendanceService
     // Như trên nhưng cho nhiều nhân viên trong một khoảng ngày (bảng công theo phòng ban).
     Task<List<EffectiveDay>> GetDaysWithDataAsync(IReadOnlyCollection<long> employeeIds, DateOnly from, DateOnly to);
 
+    // Mỗi nhân viên một dòng cho MỖI ngày làm việc trong khoảng (kể cả ngày chưa có dữ liệu / chưa chấm công),
+    // thêm cả cuối tuần nếu hôm đó có dữ liệu. Dùng cho bảng công của quản lý để thấy cả người chưa chấm công.
+    Task<List<EffectiveDay>> GetAllWorkingDaysAsync(IReadOnlyCollection<long> employeeIds, DateOnly from, DateOnly to);
+
     // Trạng thái hiệu lực của một buổi.
     Task<SessionStatus> GetSessionStatusAsync(long employeeId, DateOnly date, DaySession session);
 

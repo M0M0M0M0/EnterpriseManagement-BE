@@ -71,6 +71,26 @@ public class EffectiveAttendanceService : IEffectiveAttendanceService
         return result.OrderByDescending(d => d.Date).ThenBy(d => d.EmployeeId).ToList();
     }
 
+    public async Task<List<EffectiveDay>> GetAllWorkingDaysAsync(IReadOnlyCollection<long> employeeIds, DateOnly from, DateOnly to)
+    {
+        var inputs = await _repository.LoadAsync(employeeIds, from, to);
+        var today = VietnamClock.Today;
+        var result = new List<EffectiveDay>();
+
+        foreach (var employeeId in employeeIds)
+        {
+            for (var date = from; date <= to; date = date.AddDays(1))
+            {
+                var day = EffectiveDayCalculator.Compute(employeeId, date, inputs, today);
+                // Cuối tuần chỉ giữ khi có dữ liệu thật (vd có người vẫn chấm công thứ Bảy).
+                if (day.IsWeekend && !day.HasData) continue;
+                result.Add(day);
+            }
+        }
+
+        return result.OrderByDescending(d => d.Date).ThenBy(d => d.EmployeeId).ToList();
+    }
+
     public async Task<SessionStatus> GetSessionStatusAsync(long employeeId, DateOnly date, DaySession session)
     {
         var day = await GetDayAsync(employeeId, date);
