@@ -29,7 +29,8 @@ public class AttendanceAdjustmentRepository : IAttendanceAdjustmentRepository
             .Include(a => a.Requester)
             .Include(a => a.Approver)
             .Where(a => a.Status == ApprovalStatus.PendingHr)
-            .OrderBy(a => a.ApprovedAt)
+            // Yêu cầu gửi mới nhất lên đầu (theo thời điểm nhân viên gửi, không theo ngày cần điều chỉnh).
+            .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
 
     public async Task<bool> HasOpenAsync(long employeeId, DateOnly date) =>
@@ -43,6 +44,8 @@ public class AttendanceAdjustmentRepository : IAttendanceAdjustmentRepository
             .Include(a => a.Attendance)
             .Include(a => a.Requester)
             .Where(a => a.Status == ApprovalStatus.Pending)
+            // Yêu cầu gửi mới nhất lên đầu (theo thời điểm nhân viên gửi, không theo ngày cần điều chỉnh).
+            .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
 
     public async Task<IEnumerable<AttendanceAdjustment>> GetByEmployeeIdAsync(long employeeId) =>
