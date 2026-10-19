@@ -142,7 +142,7 @@ public class DepartmentService : IDepartmentService
     // Tài khoản hệ thống (không chấm công, vd admin) không được làm trưởng phòng.
     private static void EnsureCanBeHead(Employee employee)
     {
-        if (!employee.TracksAttendance)
+        if (SystemAccount.IsSystem(employee))
         {
             throw new InvalidOperationException("Tài khoản hệ thống không thể được chọn làm trưởng phòng.");
         }

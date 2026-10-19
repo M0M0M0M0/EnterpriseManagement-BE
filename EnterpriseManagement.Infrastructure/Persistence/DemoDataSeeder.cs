@@ -179,6 +179,8 @@ public static class DemoDataSeeder
                     ManagerId = seed.ManagerKey is null ? null : byKey[seed.ManagerKey].Id,
                     HireDate = DateOnly.FromDateTime(now).AddMonths(-seed.HireMonthsAgo),
                     EmploymentStatus = seed.Status,
+                    // Giám đốc không thuộc diện chấm công: giờ giấc do họ tự quyết, chỉ nhân viên cấp dưới mới chấm công thực tế.
+                    TracksAttendance = seed.Key != "CEO",
                     CreatedAt = now,
                 };
 

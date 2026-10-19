@@ -60,6 +60,11 @@ public class AttendanceService : IAttendanceService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
+        if (!employee.TracksAttendance)
+        {
+            throw new InvalidOperationException(SystemAccount.NotTrackedMessage);
+        }
+
         // Quá giờ khoá (18:00) thì không chấm công nữa, kiểm tra đầu tiên để không để lại ảnh hay dữ liệu nào.
         if (EffectiveDayCalculator.IsPunchLocked(VietnamClock.Now))
         {

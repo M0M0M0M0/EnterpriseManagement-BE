@@ -15,6 +15,8 @@ _(không có)_
 - Mốc khoá đang là hằng số trong code; muốn cấu hình được thì chuyển sang `appsettings.json` (như mục `Reminders`).
 
 ## Sau đợt rà soát BA/UX (2026-10-19)
+- Giám đốc (CEO) không thuộc diện chấm công (TracksAttendance=false): không chấm công/xin nghỉ/OT/điều chỉnh, không có trong bảng công, vẫn là quản lý của cấp dưới. Admin chỉ làm kỹ thuật, không duyệt đơn.
+- Ngày lễ 2026 đã đối chiếu công văn 9859/VPCP-KGVX (Tết 16-20/2, Giỗ Tổ 26-27/4, 30/4-1/5, Quốc khánh 1-2/9); 31/8 chỉ là hoán đổi ngày làm của khu vực công nên không seed.
 - Đã làm: vai trò HR; tách quyền Quản lý/HR; OT; ngày lễ; bảng công tháng có chốt kỳ; đồng ý GPS/ảnh + tự xóa sau 180 ngày; xếp lại menu.
 - Ngày lễ: seed 2026 đủ, 2027 chỉ ngày cố định. Tết Âm lịch/Giỗ Tổ/nghỉ bù các năm sau do HR bổ sung ở trang Ngày nghỉ lễ khi có thông báo chính thức.
 - Lịch ngày lễ nạp vào bộ nhớ (WorkCalendar); chạy nhiều bản backend thì cần restart để nhận thay đổi ngày lễ từ bản khác.

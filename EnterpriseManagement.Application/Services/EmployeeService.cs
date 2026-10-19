@@ -319,7 +319,7 @@ public class EmployeeService : IEmployeeService
         var manager = await _employeeRepository.GetByEmployeeCodeAsync(managerCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerCode}'.");
 
-        if (!manager.TracksAttendance)
+        if (SystemAccount.IsSystem(manager))
         {
             throw new InvalidOperationException("Tài khoản hệ thống không thể được chọn làm quản lý.");
         }

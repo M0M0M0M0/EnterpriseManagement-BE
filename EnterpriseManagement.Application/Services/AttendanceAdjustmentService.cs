@@ -51,6 +51,11 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
+        if (!employee.TracksAttendance)
+        {
+            throw new InvalidOperationException(SystemAccount.NotTrackedMessage);
+        }
+
         if (request.AttendanceDate > VietnamClock.Today)
         {
             throw new InvalidOperationException("Không thể xin điều chỉnh công cho ngày trong tương lai.");

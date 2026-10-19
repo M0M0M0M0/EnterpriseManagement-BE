@@ -66,7 +66,7 @@ public class OvertimeService : IOvertimeService
         var employee = await GetEmployeeAsync(employeeCode);
         if (!employee.TracksAttendance)
         {
-            throw new InvalidOperationException("Tài khoản hệ thống không dùng chức năng làm thêm giờ.");
+            throw new InvalidOperationException(SystemAccount.NotTrackedMessage);
         }
 
         if (string.IsNullOrWhiteSpace(request.Reason))

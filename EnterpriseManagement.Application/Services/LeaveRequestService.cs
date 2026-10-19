@@ -53,7 +53,7 @@ public class LeaveRequestService : ILeaveRequestService
 
         if (!employee.TracksAttendance)
         {
-            throw new InvalidOperationException("Tài khoản hệ thống không dùng chức năng nghỉ phép.");
+            throw new InvalidOperationException(SystemAccount.NotTrackedMessage);
         }
 
         var leaveType = await _leaveTypeRepository.GetByCodeAsync(request.LeaveTypeCode)
