@@ -60,6 +60,13 @@ public class AttendanceService : IAttendanceService
         var employee = await _employeeRepository.GetByEmployeeCodeAsync(employeeCode)
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{employeeCode}'.");
 
+        // Quá giờ khoá (18:00) thì không chấm công nữa, kiểm tra đầu tiên để không để lại ảnh hay dữ liệu nào.
+        if (EffectiveDayCalculator.IsPunchLocked(VietnamClock.Now))
+        {
+            throw new InvalidOperationException(
+                "Đã quá 18:00 nên hệ thống khoá chấm công. Nếu quên chấm công, hãy gửi yêu cầu điều chỉnh chấm công.");
+        }
+
         // Kiểm tra vị trí trước khi lưu bất cứ thứ gì (kể cả ảnh), để lần chấm công bị từ chối không để lại dữ liệu.
         ValidateLocation(request);
 

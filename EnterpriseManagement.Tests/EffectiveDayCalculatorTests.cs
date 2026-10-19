@@ -299,4 +299,18 @@ public class EffectiveDayCalculatorTests
         inputs.HireDates[2] = new DateOnly(2026, 1, 1);
         Assert.Equal(SessionStatus.Absent, EffectiveDayCalculator.Compute(2, Mon, inputs, Today).Morning);
     }
+
+    // ---- Khoá chấm công sau 18:00 ----
+
+    [Theory]
+    [InlineData(7, 45, false)]
+    [InlineData(17, 0, false)]
+    [InlineData(17, 59, false)]
+    [InlineData(18, 0, true)]
+    [InlineData(18, 1, true)]
+    [InlineData(23, 59, true)]
+    public void PunchLock_StartsAtSixPm(int h, int m, bool locked)
+    {
+        Assert.Equal(locked, EffectiveDayCalculator.IsPunchLocked(new DateTime(2026, 10, 19, h, m, 0)));
+    }
 }
