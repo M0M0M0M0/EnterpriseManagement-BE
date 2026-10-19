@@ -35,6 +35,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<AttendanceAdjustment> AttendanceAdjustments => Set<AttendanceAdjustment>();
     public DbSet<AttendanceSessionNote> AttendanceSessionNotes => Set<AttendanceSessionNote>();
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<OvertimeRequest> OvertimeRequests => Set<OvertimeRequest>();
+    public DbSet<AttendancePeriod> AttendancePeriods => Set<AttendancePeriod>();
 
     // Leave
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();

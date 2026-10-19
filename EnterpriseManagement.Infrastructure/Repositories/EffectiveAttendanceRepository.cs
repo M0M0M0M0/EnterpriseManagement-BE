@@ -66,6 +66,16 @@ public class EffectiveAttendanceRepository : IEffectiveAttendanceRepository
             .Select(a => new Punch(a.EmployeeId, a.AttendanceDate, a.CheckInTime!.Value, a.CheckOutTime, a.WorkingHours))
             .ToListAsync();
 
+        // OT đã được duyệt: cộng vào công của chính ngày đó.
+        var overtimes = (await _context.OvertimeRequests
+                .AsNoTracking()
+                .Where(o => ids.Contains(o.EmployeeId) && o.Status == OvertimeStatus.Approved && o.Date >= from && o.Date <= to)
+                .Select(o => new { o.EmployeeId, o.Date, o.Minutes })
+                .ToListAsync())
+            .GroupBy(o => (o.EmployeeId, o.Date))
+            .Select(g => new OvertimeEntry(g.Key.EmployeeId, g.Key.Date, g.Sum(x => x.Minutes)))
+            .ToList();
+
         var employeeRows = await _context.Employees
             .AsNoTracking()
             .Where(e => ids.Contains(e.Id))
@@ -80,6 +90,7 @@ public class EffectiveAttendanceRepository : IEffectiveAttendanceRepository
             Returns = returns,
             Notes = notes,
             Punches = punches,
+            Overtimes = overtimes,
             HireDates = hireDates,
             NonTrackingEmployeeIds = nonTracking
         };

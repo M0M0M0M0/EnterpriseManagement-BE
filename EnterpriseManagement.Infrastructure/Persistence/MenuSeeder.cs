@@ -17,27 +17,31 @@ public static class MenuSeeder
     private static readonly MenuSeed[] Seeds =
     {
         new("EMPLOYEE_DASHBOARD", "Tổng quan", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
-        new("EMPLOYEE_ATTENDANCE", "Điều chỉnh chấm công", "ClockRegular", "/employee/attendance", 2, "page.employee.attendance", "EMPLOYEE"),
-        new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 3, "page.employee.leave", "EMPLOYEE"),
+        new("EMPLOYEE_ATTENDANCE", "Điều chỉnh chấm công", "ClockRegular", "/employee/attendance", 5, "page.employee.attendance", "EMPLOYEE"),
+        new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 6, "page.employee.leave", "EMPLOYEE"),
+        new("EMPLOYEE_OVERTIME", "Làm thêm giờ", "ClockRegular", "/employee/overtime", 7, "page.employee.overtime", "EMPLOYEE"),
 
         new("MANAGER_DASHBOARD", "Tổng quan phòng ban", "HomeRegular", "/manager/dashboard", 1, "page.manager.dashboard", "MANAGER"),
-        new("MANAGER_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/manager/employees", 2, "page.manager.employees", "MANAGER"),
+        new("MANAGER_LEAVE", "Duyệt đơn từ", "DocumentBulletListRegular", "/manager/leave", 2, "page.manager.leave", "MANAGER"),
         new("MANAGER_ATTENDANCE", "Quản lý chấm công", "ClockRegular", "/manager/attendance", 3, "page.manager.attendance", "MANAGER"),
-        new("MANAGER_LEAVE", "Duyệt đơn xin nghỉ", "DocumentBulletListRegular", "/manager/leave", 4, "page.manager.leave", "MANAGER"),
-        new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 7, "page.manager.organization", "MANAGER"),
+        new("MANAGER_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/manager/employees", 4, "page.manager.employees", "MANAGER"),
+        new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 8, "page.manager.organization", "MANAGER"),
         new("MANAGER_ORG_TREE", "Cây tổ chức", "PeopleTeamRegular", "/manager/org-tree", 9, "page.manager.orgtree", "MANAGER"),
 
-        new("HR_ATTENDANCE", "Chấm công toàn công ty", "ClockRegular", "/hr/attendance", 1, "page.hr.attendance", "ADMIN"),
-        new("HR_ATTENDANCE_NOTES", "Ghi nhận chấm công", "DocumentBulletListRegular", "/hr/attendance-notes", 2, "page.hr.attendance-notes", "ADMIN"),
-        new("HR_ADJUSTMENTS", "Xử lý điều chỉnh công", "DocumentBulletListRegular", "/hr/adjustments", 3, "page.hr.adjustments", "ADMIN"),
-        new("HR_LEAVE_RETURNS", "Xử lý đi làm lại", "CalendarRegular", "/hr/leave-returns", 4, "page.hr.leave-returns", "ADMIN"),
+        // Nhóm Nhân sự (10-19): việc hằng ngày của HR. Nhóm danh mục (20-29) và hệ thống (30+) đứng sau.
+        new("HR_ATTENDANCE", "Chấm công toàn công ty", "ClockRegular", "/hr/attendance", 10, "page.hr.attendance", "ADMIN"),
+        new("HR_ADJUSTMENTS", "Xử lý điều chỉnh công", "DocumentBulletListRegular", "/hr/adjustments", 11, "page.hr.adjustments", "ADMIN"),
+        new("HR_LEAVE_RETURNS", "Xử lý đi làm lại", "CalendarRegular", "/hr/leave-returns", 12, "page.hr.leave-returns", "ADMIN"),
+        new("HR_ATTENDANCE_NOTES", "Ghi nhận chấm công", "DocumentBulletListRegular", "/hr/attendance-notes", 13, "page.hr.attendance-notes", "ADMIN"),
+        new("HR_TIMESHEET", "Bảng công tháng", "TableRegular", "/hr/timesheet", 14, "page.hr.timesheet", "ADMIN"),
+        new("HR_HOLIDAYS", "Ngày nghỉ lễ", "CalendarRegular", "/hr/holidays", 15, "page.hr.holidays", "ADMIN"),
 
-        new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 2, "page.admin.employees", "ADMIN"),
-        new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 3, "page.admin.departments", "ADMIN"),
-        new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 4, "page.admin.positions", "ADMIN"),
-        new("ADMIN_LEAVE_TYPES", "Loại nghỉ phép", "CalendarRegular", "/admin/leave-types", 5, "page.admin.leavetypes", "ADMIN"),
-        new("ADMIN_AUDIT", "Nhật ký hệ thống", "HistoryRegular", "/admin/audit", 7, "page.admin.audit", "ADMIN"),
-        new("ADMIN_SYSTEM", "Quản trị hệ thống", "SettingsRegular", "/admin/system", 8, "page.admin.system", "ADMIN"),
+        new("ADMIN_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/admin/employees", 20, "page.admin.employees", "ADMIN"),
+        new("ADMIN_DEPARTMENTS", "Phòng ban", "BuildingRegular", "/admin/departments", 21, "page.admin.departments", "ADMIN"),
+        new("ADMIN_POSITIONS", "Chức vụ", "PersonRegular", "/admin/positions", 22, "page.admin.positions", "ADMIN"),
+        new("ADMIN_LEAVE_TYPES", "Loại nghỉ phép", "CalendarRegular", "/admin/leave-types", 23, "page.admin.leavetypes", "ADMIN"),
+        new("ADMIN_AUDIT", "Nhật ký hệ thống", "HistoryRegular", "/admin/audit", 30, "page.admin.audit", "ADMIN"),
+        new("ADMIN_SYSTEM", "Quản trị hệ thống", "SettingsRegular", "/admin/system", 31, "page.admin.system", "ADMIN"),
     };
 
     // Idempotent: chỉ chèn những MenuCode chưa tồn tại, để khi thêm seed mới (vd MANAGER_AUDIT)
@@ -57,6 +61,7 @@ public static class MenuSeeder
         // xoá menu + permission page.admin.users). Gọi lại ở đây để DB nào còn sót cũng được dọn.
         await RemoveAdminUsersMenuAsync(context);
         await RenameEnglishSeedMenusAsync(context, now);
+        await ReorderExistingMenusAsync(context, now);
 
         var existingMenuCodes = (await context.Menus.Select(m => m.MenuCode).ToListAsync()).ToHashSet();
         var missingSeeds = Seeds.Where(s => !existingMenuCodes.Contains(s.MenuCode)).ToList();
@@ -139,6 +144,35 @@ public static class MenuSeeder
 
         // Tương tự, Manager cũng tự xin nghỉ phép: tái dùng trang "Xin nghỉ phép" (route /employee/leave).
         await GrantManagerSelfMenuAsync(context, now, "page.employee.leave");
+
+        // Và tự xin làm thêm giờ: dùng chung trang "Làm thêm giờ" (/employee/overtime).
+        await GrantManagerSelfMenuAsync(context, now, "page.employee.overtime");
+    }
+
+    // Thứ tự menu theo tần suất dùng (việc hằng ngày lên trước). Chỉ đổi khi thứ tự hiện tại còn đúng bằng mặc định cũ,
+    // để không ghi đè thứ tự Admin đã tự sắp xếp.
+    private static readonly (string MenuCode, int OldOrder, int NewOrder)[] OrderChanges =
+    {
+        ("MANAGER_LEAVE", 4, 2), ("MANAGER_EMPLOYEES", 2, 4), ("MANAGER_ORGANIZATION", 7, 8),
+        ("EMPLOYEE_ATTENDANCE", 2, 5), ("EMPLOYEE_LEAVE", 3, 6), ("EMPLOYEE_OVERTIME", 4, 7),
+        ("HR_ATTENDANCE", 1, 10), ("HR_ATTENDANCE_NOTES", 2, 13), ("HR_ADJUSTMENTS", 3, 11), ("HR_LEAVE_RETURNS", 4, 12),
+        ("ADMIN_EMPLOYEES", 2, 20), ("ADMIN_DEPARTMENTS", 3, 21), ("ADMIN_POSITIONS", 4, 22), ("ADMIN_LEAVE_TYPES", 5, 23),
+        ("ADMIN_AUDIT", 7, 30), ("ADMIN_SYSTEM", 8, 31),
+    };
+
+    private static async Task ReorderExistingMenusAsync(ApplicationDbContext context, DateTime now)
+    {
+        var menus = await context.Menus.ToDictionaryAsync(m => m.MenuCode);
+        var changed = false;
+        foreach (var (code, oldOrder, newOrder) in OrderChanges)
+        {
+            if (!menus.TryGetValue(code, out var menu) || menu.DisplayOrder != oldOrder) continue;
+            menu.DisplayOrder = newOrder;
+            menu.UpdatedAt = now;
+            changed = true;
+        }
+
+        if (changed) await context.SaveChangesAsync();
     }
 
     private static async Task GrantManagerSelfMenuAsync(ApplicationDbContext context, DateTime now, string permissionCode)
@@ -246,6 +280,8 @@ public static class MenuSeeder
         ("ADMIN_SYSTEM", "page.admin.system", "System Administration", "Quản trị hệ thống"),
         // Việc chấm công đã chuyển sang Trang chủ/Tổng quan; trang này chỉ còn lịch và yêu cầu điều chỉnh.
         ("EMPLOYEE_ATTENDANCE", "page.employee.attendance", "Chấm công", "Điều chỉnh chấm công"),
+        // Trang duyệt giờ gồm cả đơn nghỉ, đi làm lại và làm thêm giờ.
+        ("MANAGER_LEAVE", "page.manager.leave", "Duyệt đơn xin nghỉ", "Duyệt đơn từ"),
     };
 
     private static async Task RenameEnglishSeedMenusAsync(ApplicationDbContext context, DateTime now)

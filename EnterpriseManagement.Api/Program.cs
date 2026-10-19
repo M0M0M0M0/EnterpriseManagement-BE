@@ -87,6 +87,13 @@ builder.Services.AddScoped<ILeaveTypeService, LeaveTypeService>();
 builder.Services.AddScoped<ILeaveBalanceRepository, LeaveBalanceRepository>();
 builder.Services.AddScoped<ILeaveBalanceService, LeaveBalanceService>();
 builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
+builder.Services.AddScoped<IHolidayRepository, HolidayRepository>();
+builder.Services.AddScoped<IHolidayService, HolidayService>();
+builder.Services.AddScoped<IOvertimeRepository, OvertimeRepository>();
+builder.Services.AddScoped<IOvertimeService, OvertimeService>();
+builder.Services.AddScoped<IAttendancePeriodRepository, AttendancePeriodRepository>();
+builder.Services.AddScoped<IPeriodLockService, PeriodLockService>();
+builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
@@ -143,6 +150,9 @@ using (var scope = app.Services.CreateScope())
     await ActionPermissionSeeder.SeedAsync(context);
     await LeaveTypeSeeder.SeedAsync(context);
     await PositionSeeder.SeedAsync(context);
+    await HrRoleSeeder.SeedAsync(context);
+    await HolidaySeeder.SeedAsync(context);
+    await scope.ServiceProvider.GetRequiredService<IHolidayService>().ReloadAsync();
 
     if (app.Environment.IsDevelopment())
     {

@@ -16,6 +16,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
     private readonly IEffectiveAttendanceService _effective;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IPeriodLockService _periodLock;
     private readonly INotificationService _notificationService;
 
     public AttendanceAdjustmentService(
@@ -27,6 +28,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         IEffectiveAttendanceService effective,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService,
+        IPeriodLockService periodLock,
         INotificationService notificationService)
     {
         _adjustmentRepository = adjustmentRepository;
@@ -37,6 +39,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         _effective = effective;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _periodLock = periodLock;
         _notificationService = notificationService;
     }
 
@@ -52,6 +55,8 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         {
             throw new InvalidOperationException("Không thể xin điều chỉnh công cho ngày trong tương lai.");
         }
+
+        await _periodLock.EnsureOpenAsync(request.AttendanceDate);
 
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
@@ -302,6 +307,14 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         {
             throw new InvalidOperationException("Bạn không thể xử lý yêu cầu điều chỉnh công của chính mình.");
         }
+
+        // Người đã duyệt (bước 1) không được tự áp dụng (bước 2): hai bước phải do hai người khác nhau.
+        if (adjustment.ApprovedBy == processor.Id)
+        {
+            throw new InvalidOperationException("Bạn đã là người duyệt yêu cầu này nên không thể tự áp dụng. Cần một người nhân sự khác xử lý.");
+        }
+
+        await _periodLock.EnsureOpenAsync(adjustment.Attendance.AttendanceDate);
 
         return (adjustment, processor);
     }

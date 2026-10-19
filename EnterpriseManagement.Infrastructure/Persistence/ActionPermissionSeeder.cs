@@ -39,6 +39,15 @@ public static class ActionPermissionSeeder
         new("leavebalance.manage", "Cấp lại số ngày/giờ nghỉ", "leave", "Chỉnh số ngày/giờ nghỉ còn lại của nhân viên.", new[] { "MANAGER" }),
         new("leavetype.manage", "Quản lý loại nghỉ phép", "leave", "Tạo/sửa loại nghỉ phép và quy tắc tích lũy.", new[] { "ADMIN" }),
 
+        // Làm thêm giờ (OT): nhân viên và quản lý tự xin; quản lý duyệt đơn của team như đơn nghỉ.
+        new("overtime.request.self", "Xin làm thêm giờ", "overtime", "Gửi, xem và hủy đơn xin làm thêm giờ của chính mình.", new[] { "EMPLOYEE", "MANAGER" }),
+        new("overtime.request.view", "Xem đơn làm thêm giờ", "overtime", "Xem danh sách đơn làm thêm giờ đang chờ và lịch sử duyệt của team.", new[] { "MANAGER" }),
+        new("overtime.request.approve", "Duyệt/từ chối làm thêm giờ", "overtime", "Duyệt hoặc từ chối đơn xin làm thêm giờ.", new[] { "MANAGER" }),
+
+        // Lịch ngày lễ và bảng công tháng: việc của Nhân sự (HR được cấp trong HrRoleSeeder).
+        new("holiday.manage", "Quản lý ngày nghỉ lễ", "attendance", "Thêm/xoá ngày nghỉ lễ của công ty.", new[] { "ADMIN" }),
+        new("timesheet.manage", "Bảng công tháng", "attendance", "Xem, xuất file, chốt và mở lại bảng công tháng.", new[] { "ADMIN" }),
+
         new("dashboard.view.team", "Xem tổng quan phòng ban", "dashboard", "Xem trang tổng quan của cả phòng ban.", new[] { "MANAGER" }),
 
         new("employee.view.all", "Xem toàn bộ nhân viên", "employee", "Xem danh sách toàn bộ nhân viên trong hệ thống.", new[] { "ADMIN" }),

@@ -22,6 +22,7 @@ public class LeaveReturnService : ILeaveReturnService
     private readonly IApprovalDelegationResolver _approvalDelegationResolver;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IPeriodLockService _periodLock;
     private readonly INotificationService _notificationService;
 
     public LeaveReturnService(
@@ -31,6 +32,7 @@ public class LeaveReturnService : ILeaveReturnService
         IApprovalDelegationResolver approvalDelegationResolver,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService,
+        IPeriodLockService periodLock,
         INotificationService notificationService)
     {
         _repository = repository;
@@ -39,6 +41,7 @@ public class LeaveReturnService : ILeaveReturnService
         _approvalDelegationResolver = approvalDelegationResolver;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _periodLock = periodLock;
         _notificationService = notificationService;
     }
 
@@ -85,6 +88,7 @@ public class LeaveReturnService : ILeaveReturnService
         }
 
         var tail = await ResolveTailAsync(employee.Id, request.FromDate, session);
+        await _periodLock.EnsureOpenAsync(request.FromDate, tail.Max(t => t.Date));
 
         var entity = new LeaveReturnRequest
         {
@@ -322,6 +326,14 @@ public class LeaveReturnService : ILeaveReturnService
             throw new InvalidOperationException("Bạn không thể xử lý yêu cầu đi làm lại của chính mình.");
         }
 
+        // Người đã duyệt (bước 1) không được tự xác nhận (bước 2).
+        if (request.ManagerId == processor.Id)
+        {
+            throw new InvalidOperationException("Bạn đã là người duyệt yêu cầu này nên không thể tự xác nhận. Cần một người nhân sự khác xử lý.");
+        }
+
+        await _periodLock.EnsureOpenAsync(request.FromDate, request.Sessions.Max(s => s.Date));
+
         return request;
     }
 
@@ -336,9 +348,9 @@ public class LeaveReturnService : ILeaveReturnService
     // Chỉ được xin đi làm lại từ buổi chưa bắt đầu. Buổi đã bắt đầu hoặc đã qua không xin được nữa.
     private static void ValidateNotStarted(DateOnly date, DaySession session, DateTime now)
     {
-        if (EffectiveDayCalculator.IsWeekend(date))
+        if (EffectiveDayCalculator.IsNonWorkingDay(date))
         {
-            throw new InvalidOperationException("Ngày đi làm lại phải là ngày làm việc (thứ Hai đến thứ Sáu).");
+            throw new InvalidOperationException("Ngày đi làm lại phải là ngày làm việc (thứ Hai đến thứ Sáu, không phải ngày lễ).");
         }
 
         if (SessionStart(date, session) <= now)
@@ -357,7 +369,7 @@ public class LeaveReturnService : ILeaveReturnService
         var time = now.TimeOfDay;
 
         DaySession session;
-        if (EffectiveDayCalculator.IsWeekend(date) || time >= AfternoonStart)
+        if (EffectiveDayCalculator.IsNonWorkingDay(date) || time >= AfternoonStart)
         {
             date = date.AddDays(1);
             session = DaySession.Morning;
@@ -367,7 +379,7 @@ public class LeaveReturnService : ILeaveReturnService
             session = time < MorningStart ? DaySession.Morning : DaySession.Afternoon;
         }
 
-        while (EffectiveDayCalculator.IsWeekend(date))
+        while (EffectiveDayCalculator.IsNonWorkingDay(date))
         {
             date = date.AddDays(1);
             session = DaySession.Morning;
@@ -403,7 +415,7 @@ public class LeaveReturnService : ILeaveReturnService
         var cursor = (Date: fromDate, Session: fromSession);
         while (cursor.Date <= horizon)
         {
-            if (EffectiveDayCalculator.IsWeekend(cursor.Date))
+            if (EffectiveDayCalculator.IsNonWorkingDay(cursor.Date))
             {
                 cursor = (cursor.Date.AddDays(1), DaySession.Morning);
                 continue;

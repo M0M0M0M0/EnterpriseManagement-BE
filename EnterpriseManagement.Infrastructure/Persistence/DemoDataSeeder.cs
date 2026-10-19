@@ -41,8 +41,8 @@ public static class DemoDataSeeder
         new("SALES_B2", "e12", "Đỗ Thị Ngọc", Gender.Female, new(1995, 10, 21), "0901000112", "54 Cống Quỳnh, Quận 1, TP.HCM", "STAFF", "SALES", 8, EmploymentStatus.Active, 3, "TEAM_LEAD_B"),
         new("SALES_B3", "e13", "Ngô Văn Phúc", Gender.Male, new(1999, 1, 30), "0901000113", "76 Lê Văn Sỹ, Phú Nhuận, TP.HCM", "STAFF", "SALES", 2, EmploymentStatus.Probation, 3, "TEAM_LEAD_B"),
 
-        new("HR_1", "e14", "Lý Văn Sơn", Gender.Male, new(1993, 3, 12), "0901000114", "15 Hoàng Diệu, Quận 4, TP.HCM", "STAFF", "HR", 9, EmploymentStatus.Active, 3, "HR_HEAD"),
-        new("HR_2", "e15", "Phan Thị Hạnh", Gender.Female, new(1996, 7, 6), "0901000115", "38 Nguyễn Đình Chiểu, Quận 3, TP.HCM", "STAFF", "HR", 5, EmploymentStatus.Active, 3, "HR_HEAD"),
+        new("HR_1", "e14", "Lý Văn Sơn", Gender.Male, new(1993, 3, 12), "0901000114", "15 Hoàng Diệu, Quận 4, TP.HCM", "HRSTAFF", "HR", 9, EmploymentStatus.Active, 3, "HR_HEAD"),
+        new("HR_2", "e15", "Phan Thị Hạnh", Gender.Female, new(1996, 7, 6), "0901000115", "38 Nguyễn Đình Chiểu, Quận 3, TP.HCM", "HRSTAFF", "HR", 5, EmploymentStatus.Active, 3, "HR_HEAD"),
 
         new("IT_1", "e16", "Trịnh Văn Minh", Gender.Male, new(1992, 5, 27), "0901000116", "60 Ba Tháng Hai, Quận 10, TP.HCM", "STAFF", "IT", 15, EmploymentStatus.Active, 3, "IT_HEAD"),
         new("IT_2", "e17", "Đinh Thị Yến", Gender.Female, new(1994, 9, 14), "0901000117", "82 Sư Vạn Hạnh, Quận 10, TP.HCM", "STAFF", "IT", 11, EmploymentStatus.Active, 3, "IT_HEAD"),
@@ -88,6 +88,7 @@ public static class DemoDataSeeder
         ["DEPUTY"] = "MANAGER",
         ["MANAGER"] = "MANAGER",
         ["STAFF"] = "EMPLOYEE",
+        ["HRSTAFF"] = "HR",
     };
 
     // PositionSeeder chỉ seed HEAD/DEPUTY/MANAGER/STAFF khi bảng Positions đang rỗng — nếu Admin
@@ -102,6 +103,7 @@ public static class DemoDataSeeder
             ("DEPUTY", "Phó phòng"),
             ("MANAGER", "Quản lý"),
             ("STAFF", "Nhân viên"),
+            ("HRSTAFF", "Chuyên viên nhân sự"),
         };
 
         var positions = await context.Positions.ToDictionaryAsync(p => p.PositionCode);

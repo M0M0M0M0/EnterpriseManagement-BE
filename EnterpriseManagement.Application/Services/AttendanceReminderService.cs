@@ -35,7 +35,7 @@ public class AttendanceReminderService : IAttendanceReminderService
         if (!_options.Enabled) return 0;
 
         var today = DateOnly.FromDateTime(now);
-        if (EffectiveDayCalculator.IsWeekend(today)) return 0;
+        if (EffectiveDayCalculator.IsNonWorkingDay(today)) return 0;
 
         var checkIn = InWindow(now, _options.CheckInTime);
         var checkOut = InWindow(now, _options.CheckOutTime);

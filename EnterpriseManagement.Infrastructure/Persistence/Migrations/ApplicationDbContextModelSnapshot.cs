@@ -90,6 +90,36 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("AttendanceAdjustments", (string)null);
                 });
 
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendancePeriod", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("ClosedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("ClosedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClosedBy");
+
+                    b.HasIndex("Year", "Month")
+                        .IsUnique();
+
+                    b.ToTable("AttendancePeriods", (string)null);
+                });
+
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendanceRecord", b =>
                 {
                     b.Property<long>("Id")
@@ -213,6 +243,93 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                         .HasFilter("[RevokedAt] IS NULL");
 
                     b.ToTable("AttendanceSessionNotes", (string)null);
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.Holiday", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date")
+                        .IsUnique();
+
+                    b.ToTable("Holidays", (string)null);
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.OvertimeRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("ApprovedBy")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<long>("EmployeeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<int>("Minutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedBy");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("EmployeeId", "Date");
+
+                    b.ToTable("OvertimeRequests", (string)null);
                 });
 
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.WorkShift", b =>
@@ -1143,6 +1260,17 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Requester");
                 });
 
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendancePeriod", b =>
+                {
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Closer")
+                        .WithMany()
+                        .HasForeignKey("ClosedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Closer");
+                });
+
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.AttendanceRecord", b =>
                 {
                     b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Employee")
@@ -1185,6 +1313,24 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("Revoker");
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Attendance.OvertimeRequest", b =>
+                {
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Approver")
+                        .WithMany()
+                        .HasForeignKey("ApprovedBy")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Approver");
+
+                    b.Navigation("Employee");
                 });
 
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Auditing.AuditLog", b =>

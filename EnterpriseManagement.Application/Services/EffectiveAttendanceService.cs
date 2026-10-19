@@ -83,7 +83,7 @@ public class EffectiveAttendanceService : IEffectiveAttendanceService
             {
                 var day = EffectiveDayCalculator.Compute(employeeId, date, inputs, today);
                 // Cuối tuần chỉ giữ khi có dữ liệu thật (vd có người vẫn chấm công thứ Bảy).
-                if (day.IsWeekend && !day.HasData) continue;
+                if ((day.IsWeekend || day.IsHoliday) && !day.HasData) continue;
                 result.Add(day);
             }
         }

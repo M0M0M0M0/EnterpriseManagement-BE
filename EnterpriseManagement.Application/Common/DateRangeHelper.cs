@@ -16,6 +16,6 @@ public static class DateRangeHelper
         return count;
     }
 
-    public static bool IsWeekday(DateOnly date) =>
-        date.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+    // Ngày làm việc = không phải cuối tuần và không phải ngày nghỉ lễ của công ty (tên cũ giữ lại cho các nơi đang gọi).
+    public static bool IsWeekday(DateOnly date) => !WorkCalendar.IsNonWorkingDay(date);
 }

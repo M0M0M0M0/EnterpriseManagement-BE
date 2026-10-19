@@ -115,10 +115,17 @@ public class AttendanceController : ControllerBase
         return null;
     }
 
+    // Xem công của người khác chỉ khi có quyền xem công của team hoặc toàn công ty; ai cũng xem được công của chính mình.
+    private bool CanViewOthers(string employeeCode) =>
+        employeeCode == _currentUserService.EmployeeCode
+        || _currentUserService.IsInRole("ADMIN")
+        || _currentUserService.Permissions.Contains("attendance.view.team")
+        || _currentUserService.Permissions.Contains("attendance.view.all");
+
     [HttpGet("{employeeCode}/history")]
     public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetHistory(string employeeCode)
     {
-        if (_currentUserService.IsInRole("EMPLOYEE") && employeeCode != _currentUserService.EmployeeCode)
+        if (!CanViewOthers(employeeCode))
         {
             return Forbid();
         }
@@ -139,7 +146,7 @@ public class AttendanceController : ControllerBase
     public async Task<ActionResult<IEnumerable<AttendanceCalendarDayDto>>> GetCalendar(
         string employeeCode, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        if (_currentUserService.IsInRole("EMPLOYEE") && employeeCode != _currentUserService.EmployeeCode)
+        if (!CanViewOthers(employeeCode))
         {
             return Forbid();
         }

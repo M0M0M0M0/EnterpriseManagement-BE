@@ -16,6 +16,7 @@ public class LeaveRequestService : ILeaveRequestService
     private readonly ILeaveReturnRepository _leaveReturnRepository;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IPeriodLockService _periodLock;
     private readonly INotificationService _notificationService;
 
     public LeaveRequestService(
@@ -27,6 +28,7 @@ public class LeaveRequestService : ILeaveRequestService
         ILeaveReturnRepository leaveReturnRepository,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService,
+        IPeriodLockService periodLock,
         INotificationService notificationService)
     {
         _leaveRequestRepository = leaveRequestRepository;
@@ -37,6 +39,7 @@ public class LeaveRequestService : ILeaveRequestService
         _leaveReturnRepository = leaveReturnRepository;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _periodLock = periodLock;
         _notificationService = notificationService;
     }
 
@@ -65,8 +68,10 @@ public class LeaveRequestService : ILeaveRequestService
 
         if (totalTime <= 0)
         {
-            throw new InvalidOperationException("Khoảng thời gian xin nghỉ không có ngày làm việc nào (chỉ gồm thứ Bảy, Chủ nhật).");
+            throw new InvalidOperationException("Khoảng thời gian xin nghỉ không có ngày làm việc nào (chỉ gồm thứ Bảy, Chủ nhật hoặc ngày lễ).");
         }
+
+        await _periodLock.EnsureOpenAsync(DateOnly.FromDateTime(startDate), DateOnly.FromDateTime(endDate));
 
         // Chặn nộp đơn trùng thời gian với đơn Pending/Approved đã có của chính nhân viên đó —
         // tránh trường hợp xin nghỉ 2 lần cho cùng 1 khoảng thời gian, duyệt cả 2 sẽ trừ nhầm
@@ -182,9 +187,10 @@ public class LeaveRequestService : ILeaveRequestService
     {
         if (leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset)
         {
-            if (EffectiveDayCalculator.IsWeekend(DateOnly.FromDateTime(request.StartDate)))
+            var shortDate = DateOnly.FromDateTime(request.StartDate);
+            if (EffectiveDayCalculator.IsNonWorkingDay(shortDate))
             {
-                throw new InvalidOperationException("Không thể xin nghỉ vào thứ Bảy hoặc Chủ nhật.");
+                throw new InvalidOperationException($"Không thể xin nghỉ vào {WorkCalendar.NonWorkingReason(shortDate)}.");
             }
             if (request.StartDate.Date != now.Date)
             {
@@ -219,11 +225,14 @@ public class LeaveRequestService : ILeaveRequestService
         }
         // Ngày bắt đầu (và ngày kết thúc nếu nghỉ nhiều ngày) phải là ngày làm việc; cuối tuần nằm GIỮA khoảng nghỉ thì
         // chỉ đơn giản không bị tính. Chặn cả nghỉ nửa ngày vào T7/CN.
-        if (EffectiveDayCalculator.IsWeekend(DateOnly.FromDateTime(startOnly)) || EffectiveDayCalculator.IsWeekend(DateOnly.FromDateTime(endOnly)))
+        var startDay = DateOnly.FromDateTime(startOnly);
+        var endDay = DateOnly.FromDateTime(endOnly);
+        if (EffectiveDayCalculator.IsNonWorkingDay(startDay) || EffectiveDayCalculator.IsNonWorkingDay(endDay))
         {
+            var offDay = EffectiveDayCalculator.IsNonWorkingDay(startDay) ? startDay : endDay;
             throw new InvalidOperationException(startOnly == endOnly
-                ? "Không thể xin nghỉ vào thứ Bảy hoặc Chủ nhật."
-                : "Ngày bắt đầu và ngày kết thúc phải là ngày làm việc (thứ Hai đến thứ Sáu).");
+                ? $"Không thể xin nghỉ vào {WorkCalendar.NonWorkingReason(offDay)}."
+                : $"Ngày bắt đầu và ngày kết thúc phải là ngày làm việc (không phải thứ Bảy, Chủ nhật hay ngày lễ). {offDay:dd/MM/yyyy} là {WorkCalendar.NonWorkingReason(offDay)}.");
         }
 
         if (leaveType.LeaveTypeCode == "ANNUAL")
@@ -343,6 +352,8 @@ public class LeaveRequestService : ILeaveRequestService
         {
             throw new InvalidOperationException("Chỉ có thể duyệt đơn nghỉ phép đang chờ duyệt.");
         }
+
+        await _periodLock.EnsureOpenAsync(DateOnly.FromDateTime(leaveRequest.StartDate), DateOnly.FromDateTime(leaveRequest.EndDate));
 
         // Kiểm tra lại số dư ngay lúc duyệt: lúc nộp đơn chưa trừ phép nên nhiều đơn chờ duyệt cùng qua được bước kiểm tra,
         // nếu không kiểm tra lại ở đây thì duyệt hết sẽ làm số dư âm.

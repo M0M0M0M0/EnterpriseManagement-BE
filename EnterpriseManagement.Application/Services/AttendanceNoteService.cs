@@ -17,6 +17,7 @@ public class AttendanceNoteService : IAttendanceNoteService
     private readonly IEffectiveAttendanceService _effective;
     private readonly IAuditLogService _auditLogService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IPeriodLockService _periodLock;
     private readonly INotificationService _notificationService;
 
     public AttendanceNoteService(
@@ -25,6 +26,7 @@ public class AttendanceNoteService : IAttendanceNoteService
         IEffectiveAttendanceService effective,
         IAuditLogService auditLogService,
         ICurrentUserService currentUserService,
+        IPeriodLockService periodLock,
         INotificationService notificationService)
     {
         _repository = repository;
@@ -32,6 +34,7 @@ public class AttendanceNoteService : IAttendanceNoteService
         _effective = effective;
         _auditLogService = auditLogService;
         _currentUserService = currentUserService;
+        _periodLock = periodLock;
         _notificationService = notificationService;
     }
 
@@ -87,7 +90,7 @@ public class AttendanceNoteService : IAttendanceNoteService
         var targets = new List<(DateOnly Date, DaySession Session)>();
         for (var date = request.StartDate; date <= request.EndDate; date = date.AddDays(1))
         {
-            if (EffectiveDayCalculator.IsWeekend(date)) continue;
+            if (EffectiveDayCalculator.IsNonWorkingDay(date)) continue;
 
             if (leaveSession is LeaveSession.FullDay or LeaveSession.Morning) targets.Add((date, DaySession.Morning));
             if (leaveSession is LeaveSession.FullDay or LeaveSession.Afternoon) targets.Add((date, DaySession.Afternoon));
@@ -97,6 +100,8 @@ public class AttendanceNoteService : IAttendanceNoteService
         {
             throw new InvalidOperationException("Khoảng đã chọn không có ngày làm việc nào.");
         }
+
+        await _periodLock.EnsureOpenAsync(request.StartDate, request.EndDate);
 
         foreach (var (date, session) in targets)
         {
@@ -179,6 +184,8 @@ public class AttendanceNoteService : IAttendanceNoteService
         {
             throw new InvalidOperationException("Bạn không thể thu hồi ghi chú về chính mình.");
         }
+
+        await _periodLock.EnsureOpenAsync(note.Date);
 
         note.RevokedBy = revoker.Id;
         note.RevokedAt = VietnamClock.Now;

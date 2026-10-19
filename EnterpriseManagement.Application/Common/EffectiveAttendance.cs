@@ -16,6 +16,9 @@ public sealed record ActiveReturn(
 public sealed record SessionNote(long EmployeeId, DateOnly Date, DaySession Session, SessionStatus Status, string Note);
 
 // Một lần chấm công thật (có giờ vào). Bản ghi chưa có giờ vào là bản ghi giữ chỗ, KHÔNG được đưa vào đây.
+// Tổng số phút OT đã được duyệt của một nhân viên trong một ngày.
+public sealed record OvertimeEntry(long EmployeeId, DateOnly Date, int Minutes);
+
 public sealed record Punch(long EmployeeId, DateOnly Date, DateTime CheckIn, DateTime? CheckOut, decimal? WorkingHours);
 
 public sealed class EffectiveInputs
@@ -24,6 +27,7 @@ public sealed class EffectiveInputs
     public List<ActiveReturn> Returns { get; init; } = new();
     public List<SessionNote> Notes { get; init; } = new();
     public List<Punch> Punches { get; init; } = new();
+    public List<OvertimeEntry> Overtimes { get; init; } = new();
 
     // Ngày vào làm của từng nhân viên; ngày làm việc trước ngày này không bị tính là vắng.
     public Dictionary<long, DateOnly?> HireDates { get; init; } = new();
@@ -38,6 +42,7 @@ public enum SessionSource
 {
     None,
     Weekend,
+    Holiday,
     Leave,
     ReturnConfirmed,
     Note,
@@ -50,6 +55,13 @@ public sealed class EffectiveDay
     public long EmployeeId { get; init; }
     public DateOnly Date { get; init; }
     public bool IsWeekend { get; init; }
+
+    // Ngày nghỉ lễ của công ty (không phải ngày làm việc, giống cuối tuần nhưng có tên).
+    public bool IsHoliday { get; init; }
+    public string? HolidayName { get; init; }
+
+    // Số phút làm thêm giờ đã được duyệt trong ngày này.
+    public int OvertimeMinutes { get; init; }
 
     public SessionStatus Morning { get; init; }
     public SessionStatus Afternoon { get; init; }
@@ -68,6 +80,7 @@ public sealed class EffectiveDay
     // Có dữ liệu nào để hiển thị không (chấm công thật, nghỉ phép, ghi chú hoặc đi làm lại). Dùng cho danh sách lịch sử.
     public bool HasData =>
         CheckIn is not null
+        || OvertimeMinutes > 0
         || MorningSource is SessionSource.Leave or SessionSource.Note or SessionSource.ReturnConfirmed
         || AfternoonSource is SessionSource.Leave or SessionSource.Note or SessionSource.ReturnConfirmed;
 
@@ -115,7 +128,10 @@ public static class EffectiveDayCalculator
     public static readonly TimeOnly MorningStart = new(8, 0);
     public static readonly TimeOnly AfternoonStart = new(13, 0);
 
-    public static bool IsWeekend(DateOnly date) => date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+    public static bool IsWeekend(DateOnly date) => WorkCalendar.IsWeekend(date);
+
+    // Không phải ngày làm việc: cuối tuần hoặc ngày nghỉ lễ của công ty.
+    public static bool IsNonWorkingDay(DateOnly date) => WorkCalendar.IsNonWorkingDay(date);
 
     // Các (ngày, buổi) mà một đơn nghỉ còn phủ sau khi trừ các buổi đã bị gỡ. Bỏ qua cuối tuần.
     public static IEnumerable<(DateOnly Date, DaySession Session)> CoveredSessions(
@@ -128,7 +144,7 @@ public static class EffectiveDayCalculator
 
         for (var date = leave.StartDate; date <= leave.EndDate; date = date.AddDays(1))
         {
-            if (IsWeekend(date)) continue;
+            if (IsNonWorkingDay(date)) continue;
 
             if (leave.Session is LeaveSession.FullDay or LeaveSession.Morning && !removed.Contains((date, DaySession.Morning)))
                 yield return (date, DaySession.Morning);
@@ -140,14 +156,19 @@ public static class EffectiveDayCalculator
     public static EffectiveDay Compute(long employeeId, DateOnly date, EffectiveInputs inputs, DateOnly today)
     {
         var punch = inputs.Punches.FirstOrDefault(p => p.EmployeeId == employeeId && p.Date == date);
+        var overtime = inputs.Overtimes.Where(o => o.EmployeeId == employeeId && o.Date == date).Sum(o => o.Minutes);
 
-        if (IsWeekend(date))
+        if (IsNonWorkingDay(date))
         {
+            var weekend = IsWeekend(date);
+            var source = weekend ? SessionSource.Weekend : SessionSource.Holiday;
             return new EffectiveDay
             {
-                EmployeeId = employeeId, Date = date, IsWeekend = true,
+                EmployeeId = employeeId, Date = date, IsWeekend = weekend,
+                IsHoliday = !weekend, HolidayName = weekend ? null : WorkCalendar.HolidayName(date),
+                OvertimeMinutes = overtime,
                 Morning = SessionStatus.None, Afternoon = SessionStatus.None,
-                MorningSource = SessionSource.Weekend, AfternoonSource = SessionSource.Weekend,
+                MorningSource = source, AfternoonSource = source,
                 CheckIn = punch?.CheckIn, CheckOut = punch?.CheckOut, WorkingHours = punch?.WorkingHours
             };
         }
@@ -166,7 +187,7 @@ public static class EffectiveDayCalculator
         var leaveForDisplay = morningCover ?? afternoonCover;
         return new EffectiveDay
         {
-            EmployeeId = employeeId, Date = date, IsWeekend = false,
+            EmployeeId = employeeId, Date = date, IsWeekend = false, OvertimeMinutes = overtime,
             Morning = morning, Afternoon = afternoon,
             MorningSource = morningSource, AfternoonSource = afternoonSource,
             LeaveRequestId = leaveForDisplay?.RequestId,
