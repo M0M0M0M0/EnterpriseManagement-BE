@@ -71,7 +71,7 @@ public class TimesheetsController : ControllerBase
         Ok(await _service.GetClosedPeriodsAsync(year));
 
     [HttpPost("close")]
-    [RequirePermission("timesheet.manage")]
+    [RequirePermission("timesheet.close")]
     public async Task<ActionResult<AttendancePeriodDto>> Close([FromQuery] int year, [FromQuery] int month)
     {
         try
@@ -85,7 +85,7 @@ public class TimesheetsController : ControllerBase
     }
 
     [HttpDelete("close")]
-    [RequirePermission("timesheet.manage")]
+    [RequirePermission("timesheet.close")]
     public async Task<IActionResult> Reopen([FromQuery] int year, [FromQuery] int month)
     {
         try

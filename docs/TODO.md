@@ -20,4 +20,5 @@ _(không có)_
 - Đã làm: vai trò HR; tách quyền Quản lý/HR; OT; ngày lễ; bảng công tháng có chốt kỳ; đồng ý GPS/ảnh + tự xóa sau 180 ngày; xếp lại menu.
 - Ngày lễ: seed 2026 đủ, 2027 chỉ ngày cố định. Tết Âm lịch/Giỗ Tổ/nghỉ bù các năm sau do HR bổ sung ở trang Ngày nghỉ lễ khi có thông báo chính thức.
 - Lịch ngày lễ nạp vào bộ nhớ (WorkCalendar); chạy nhiều bản backend thì cần restart để nhận thay đổi ngày lễ từ bản khác.
+- Dữ liệu demo: công ty ~100 người, 10 phòng, 5 cấp (Tổng giám đốc, 3 giám đốc khối, trưởng phòng, trưởng nhóm, nhân viên); tài khoản e1-e100 mật khẩu Demo@1234 khi dựng DB mới. Chốt bảng công chỉ trưởng nhân sự (vai trò HR_LEAD, quyền timesheet.close).
 - Chưa làm: ca làm việc, tính tiền OT, geofence theo nhiều địa điểm, phép năm theo thâm niên/chuyển phép, tương phản/chế độ tối.

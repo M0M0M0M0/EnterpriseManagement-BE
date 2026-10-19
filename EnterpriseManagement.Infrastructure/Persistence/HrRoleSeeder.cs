@@ -36,26 +36,18 @@ public static class HrRoleSeeder
         "page.hr.attendance", "page.hr.attendance-notes", "page.hr.adjustments", "page.hr.leave-returns",
     };
 
+    // Trưởng bộ phận nhân sự: mọi quyền của HR cộng thêm chốt/mở lại bảng công tháng. Gán cho trưởng phòng nhân sự (cùng vai trò Quản lý).
+    public const string LeadRoleCode = "HR_LEAD";
+
+    private static readonly string[] LeadExtraGrants = { "timesheet.close" };
+
     public static async Task SeedAsync(ApplicationDbContext context)
     {
         var now = VietnamClock.Now;
-
-        var role = await context.Roles.FirstOrDefaultAsync(r => r.RoleCode == RoleCode);
-        var created = role is null;
-        if (role is null)
-        {
-            role = new Role { RoleCode = RoleCode, RoleName = "Nhân sự", IsActive = true, CreatedAt = now };
-            context.Roles.Add(role);
-            await context.SaveChangesAsync();
-        }
-
         var permissions = await context.Permissions.ToDictionaryAsync(p => p.PermissionCode);
-        var granted = (await context.RolePermissions.Where(rp => rp.RoleId == role.Id).Select(rp => rp.PermissionId).ToListAsync()).ToHashSet();
-        foreach (var code in Grants)
-        {
-            if (!permissions.TryGetValue(code, out var permission) || granted.Contains(permission.Id)) continue;
-            context.RolePermissions.Add(new RolePermission { Role = role, Permission = permission, GrantedAt = now, CreatedAt = now });
-        }
+
+        var created = await EnsureRoleAsync(context, permissions, RoleCode, "Nhân sự", Grants, now);
+        await EnsureRoleAsync(context, permissions, LeadRoleCode, "Trưởng nhân sự", Grants.Concat(LeadExtraGrants).ToArray(), now);
 
         if (created)
         {
@@ -74,5 +66,29 @@ public static class HrRoleSeeder
         }
 
         await context.SaveChangesAsync();
+    }
+
+    // Tạo vai trò nếu chưa có và cấp phần quyền còn thiếu. Trả về true nếu vai trò vừa được tạo.
+    private static async Task<bool> EnsureRoleAsync(
+        ApplicationDbContext context, Dictionary<string, Permission> permissions, string code, string name, string[] grants, DateTime now)
+    {
+        var role = await context.Roles.FirstOrDefaultAsync(r => r.RoleCode == code);
+        var created = role is null;
+        if (role is null)
+        {
+            role = new Role { RoleCode = code, RoleName = name, IsActive = true, CreatedAt = now };
+            context.Roles.Add(role);
+            await context.SaveChangesAsync();
+        }
+
+        var granted = (await context.RolePermissions.Where(rp => rp.RoleId == role.Id).Select(rp => rp.PermissionId).ToListAsync()).ToHashSet();
+        foreach (var grant in grants)
+        {
+            if (!permissions.TryGetValue(grant, out var permission) || granted.Contains(permission.Id)) continue;
+            context.RolePermissions.Add(new RolePermission { Role = role, Permission = permission, GrantedAt = now, CreatedAt = now });
+        }
+
+        await context.SaveChangesAsync();
+        return created;
     }
 }

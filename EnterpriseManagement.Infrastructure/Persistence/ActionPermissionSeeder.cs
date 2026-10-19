@@ -46,7 +46,9 @@ public static class ActionPermissionSeeder
 
         // Lịch ngày lễ và bảng công tháng: việc của Nhân sự (HR được cấp trong HrRoleSeeder).
         new("holiday.manage", "Quản lý ngày nghỉ lễ", "attendance", "Thêm/xoá ngày nghỉ lễ của công ty.", new[] { "ADMIN" }),
-        new("timesheet.manage", "Bảng công tháng", "attendance", "Xem, xuất file, chốt và mở lại bảng công tháng.", new[] { "ADMIN" }),
+        new("timesheet.manage", "Bảng công tháng", "attendance", "Xem và xuất file bảng công tháng của toàn công ty.", new[] { "ADMIN" }),
+        // Chốt/mở lại kỳ công khoá dữ liệu cả công ty nên chỉ trưởng bộ phận nhân sự (vai trò HR_LEAD) có, không phải mọi HR.
+        new("timesheet.close", "Chốt bảng công tháng", "attendance", "Chốt và mở lại bảng công tháng (trưởng bộ phận nhân sự).", new[] { "ADMIN" }),
 
         new("dashboard.view.team", "Xem tổng quan phòng ban", "dashboard", "Xem trang tổng quan của cả phòng ban.", new[] { "MANAGER" }),
 

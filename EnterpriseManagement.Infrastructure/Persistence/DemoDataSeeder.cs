@@ -22,39 +22,164 @@ public static class DemoDataSeeder
         string Address, string PositionCode, string DeptCode, int HireMonthsAgo,
         EmploymentStatus Status, int Level, string? ManagerKey);
 
-    private static readonly EmpSeed[] EmployeeSeeds =
+    // Công ty mẫu ~100 người, 10 phòng, 5 cấp: Tổng giám đốc -> Giám đốc khối -> Trưởng phòng -> Trưởng nhóm -> Nhân viên.
+    // 20 người đầu (e1-e20) giữ nguyên tài khoản dùng thử cũ; phần còn lại sinh theo sơ đồ cố định (Random có hạt giống) nên mỗi lần dựng lại DB đều giống nhau.
+    // Dựng lười (không dùng khởi tạo tĩnh) vì cần các mảng tên khai báo bên dưới.
+    private static EmpSeed[]? _employeeSeeds;
+    private static EmpSeed[] EmployeeSeeds => _employeeSeeds ??= BuildEmployeeSeeds();
+
+    private static readonly string[] Surnames =
     {
-        new("CEO", "e1", "Nguyễn Văn Hùng", Gender.Male, new(1978, 3, 14), "0901000101", "12 Lê Lợi, Quận 1, TP.HCM", "HEAD", "EXE", 36, EmploymentStatus.Active, 0, null),
-
-        new("SALES_HEAD", "e2", "Trần Thị Mai", Gender.Female, new(1985, 7, 22), "0901000102", "45 Nguyễn Huệ, Quận 1, TP.HCM", "DEPUTY", "SALES", 24, EmploymentStatus.Active, 1, "CEO"),
-        new("HR_HEAD", "e3", "Dương Thị Thu", Gender.Female, new(1986, 11, 2), "0901000103", "78 Hai Bà Trưng, Quận 3, TP.HCM", "DEPUTY", "HR", 24, EmploymentStatus.Active, 1, "CEO"),
-        new("IT_HEAD", "e4", "Hồ Văn Kiên", Gender.Male, new(1984, 1, 19), "0901000104", "23 Cách Mạng Tháng 8, Quận 10, TP.HCM", "DEPUTY", "IT", 24, EmploymentStatus.Active, 1, "CEO"),
-        new("ACC_HEAD", "e5", "Tô Thị Nga", Gender.Female, new(1987, 5, 9), "0901000105", "56 Điện Biên Phủ, Bình Thạnh, TP.HCM", "DEPUTY", "ACC", 24, EmploymentStatus.Active, 1, "CEO"),
-
-        new("TEAM_LEAD_A", "e6", "Lê Văn Long", Gender.Male, new(1990, 9, 30), "0901000106", "89 Võ Văn Tần, Quận 3, TP.HCM", "MANAGER", "SALES", 18, EmploymentStatus.Active, 2, "SALES_HEAD"),
-        new("TEAM_LEAD_B", "e7", "Phạm Văn Khánh", Gender.Male, new(1991, 2, 11), "0901000107", "34 Pasteur, Quận 1, TP.HCM", "MANAGER", "SALES", 18, EmploymentStatus.Active, 2, "SALES_HEAD"),
-
-        new("SALES_A1", "e8", "Hoàng Thị Lan", Gender.Female, new(1994, 6, 25), "0901000108", "12 Lý Tự Trọng, Quận 1, TP.HCM", "STAFF", "SALES", 14, EmploymentStatus.Active, 3, "TEAM_LEAD_A"),
-        new("SALES_A2", "e9", "Vũ Văn Đức", Gender.Male, new(1993, 12, 8), "0901000109", "67 Nam Kỳ Khởi Nghĩa, Quận 3, TP.HCM", "STAFF", "SALES", 10, EmploymentStatus.Active, 3, "TEAM_LEAD_A"),
-        new("SALES_A3", "e10", "Đặng Thị Hương", Gender.Female, new(1996, 4, 17), "0901000110", "90 Trần Hưng Đạo, Quận 5, TP.HCM", "STAFF", "SALES", 6, EmploymentStatus.Active, 3, "TEAM_LEAD_A"),
-        new("SALES_B1", "e11", "Bùi Văn Tùng", Gender.Male, new(1992, 8, 3), "0901000111", "21 Nguyễn Thị Minh Khai, Quận 1, TP.HCM", "STAFF", "SALES", 12, EmploymentStatus.Active, 3, "TEAM_LEAD_B"),
-        new("SALES_B2", "e12", "Đỗ Thị Ngọc", Gender.Female, new(1995, 10, 21), "0901000112", "54 Cống Quỳnh, Quận 1, TP.HCM", "STAFF", "SALES", 8, EmploymentStatus.Active, 3, "TEAM_LEAD_B"),
-        new("SALES_B3", "e13", "Ngô Văn Phúc", Gender.Male, new(1999, 1, 30), "0901000113", "76 Lê Văn Sỹ, Phú Nhuận, TP.HCM", "STAFF", "SALES", 2, EmploymentStatus.Probation, 3, "TEAM_LEAD_B"),
-
-        new("HR_1", "e14", "Lý Văn Sơn", Gender.Male, new(1993, 3, 12), "0901000114", "15 Hoàng Diệu, Quận 4, TP.HCM", "HRSTAFF", "HR", 9, EmploymentStatus.Active, 3, "HR_HEAD"),
-        new("HR_2", "e15", "Phan Thị Hạnh", Gender.Female, new(1996, 7, 6), "0901000115", "38 Nguyễn Đình Chiểu, Quận 3, TP.HCM", "HRSTAFF", "HR", 5, EmploymentStatus.Active, 3, "HR_HEAD"),
-
-        new("IT_1", "e16", "Trịnh Văn Minh", Gender.Male, new(1992, 5, 27), "0901000116", "60 Ba Tháng Hai, Quận 10, TP.HCM", "STAFF", "IT", 15, EmploymentStatus.Active, 3, "IT_HEAD"),
-        new("IT_2", "e17", "Đinh Thị Yến", Gender.Female, new(1994, 9, 14), "0901000117", "82 Sư Vạn Hạnh, Quận 10, TP.HCM", "STAFF", "IT", 11, EmploymentStatus.Active, 3, "IT_HEAD"),
-        new("IT_3", "e18", "Cao Văn Bình", Gender.Male, new(1997, 11, 23), "0901000118", "29 Tô Hiến Thành, Quận 10, TP.HCM", "STAFF", "IT", 4, EmploymentStatus.Active, 3, "IT_HEAD"),
-
-        new("ACC_1", "e19", "Mai Văn Toàn", Gender.Male, new(1993, 2, 16), "0901000119", "41 Lê Quang Định, Bình Thạnh, TP.HCM", "STAFF", "ACC", 13, EmploymentStatus.Active, 3, "ACC_HEAD"),
-        new("ACC_2", "e20", "Chu Thị Quỳnh", Gender.Female, new(1995, 12, 5), "0901000120", "63 Phan Xích Long, Phú Nhuận, TP.HCM", "STAFF", "ACC", 7, EmploymentStatus.Active, 3, "ACC_HEAD"),
+        "Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương",
+        "Lý", "Đinh", "Trịnh", "Tạ", "Cao", "Chu", "Lương", "Tống", "Kiều", "Thái", "Quách", "Mạc", "Châu",
     };
+
+    private static readonly string[] MaleNames =
+    {
+        "Hùng", "Long", "Khánh", "Đức", "Tùng", "Phúc", "Sơn", "Minh", "Bình", "Toàn", "Kiên", "Nam", "Hải", "Dũng", "Hiếu", "Thành",
+        "Tuấn", "Quân", "Huy", "Việt", "Trung", "Khoa", "Bảo", "Cường", "Đạt", "Lâm", "Phong", "Thắng", "Vinh", "Hậu", "Tài", "Luân",
+    };
+
+    private static readonly string[] FemaleNames =
+    {
+        "Mai", "Lan", "Hương", "Ngọc", "Thu", "Hạnh", "Nga", "Quỳnh", "Yến", "Linh", "Trang", "Phương", "Thảo", "Hà", "Oanh", "Nhung",
+        "Vy", "Châu", "My", "Chi", "Diệp", "Giang", "Hằng", "Loan", "Ly", "Nhi", "Thủy", "Uyên", "Vân", "Xuân", "Anh", "Dung",
+    };
+
+    private static readonly string[] MaleMiddle = { "Văn", "Đức", "Minh", "Quang", "Hữu", "Thanh", "Anh", "Gia" };
+    private static readonly string[] FemaleMiddle = { "Thị", "Ngọc", "Thu", "Thanh", "Bích", "Khánh", "Hồng", "Mỹ" };
+
+    private static readonly string[] Streets =
+    {
+        "Lê Lợi, Quận 1", "Nguyễn Huệ, Quận 1", "Hai Bà Trưng, Quận 3", "Võ Văn Tần, Quận 3", "Cách Mạng Tháng 8, Quận 10",
+        "Điện Biên Phủ, Bình Thạnh", "Phan Xích Long, Phú Nhuận", "Nguyễn Thị Minh Khai, Quận 1", "Trần Hưng Đạo, Quận 5",
+        "Lý Thường Kiệt, Quận 10", "Nguyễn Văn Cừ, Quận 5", "Cộng Hòa, Tân Bình", "Phạm Văn Đồng, Thủ Đức", "Quang Trung, Gò Vấp",
+    };
+
+    private static EmpSeed[] BuildEmployeeSeeds()
+    {
+        var list = new List<EmpSeed>();
+        var rng = new Random(20261019);
+        var usedNames = new HashSet<string>();
+        var n = 0;
+        const int baselineYear = 2026;
+
+        string Phone() => (901000100L + n).ToString("0000000000");
+        string Address() => $"{rng.Next(1, 300)} {Streets[rng.Next(Streets.Length)]}, TP.HCM";
+        DateOnly Dob(int minAge, int maxAge) => new(baselineYear - rng.Next(minAge, maxAge + 1), rng.Next(1, 13), rng.Next(1, 29));
+
+        // Người có sẵn: giữ tên, tài khoản và quan hệ báo cáo; chỉ đưa vào sơ đồ mới.
+        void Fixed(string key, string fullName, Gender gender, DateOnly dob, string address, string position, string dept,
+            int months, EmploymentStatus status, int level, string? manager)
+        {
+            n++;
+            usedNames.Add(fullName);
+            list.Add(new EmpSeed(key, $"e{n}", fullName, gender, dob, Phone(), address, position, dept, months, status, level, manager));
+        }
+
+        // Người sinh thêm: tên Việt không trùng, tuổi và thâm niên hợp với cấp bậc.
+        string Gen(string key, string dept, string position, int level, string manager, int minMonths, int maxMonths, int minAge, int maxAge)
+        {
+            n++;
+            string fullName;
+            Gender gender;
+            do
+            {
+                gender = rng.Next(100) < 48 ? Gender.Female : Gender.Male;
+                var given = gender == Gender.Female ? FemaleNames[rng.Next(FemaleNames.Length)] : MaleNames[rng.Next(MaleNames.Length)];
+                var middle = gender == Gender.Female ? FemaleMiddle[rng.Next(FemaleMiddle.Length)] : MaleMiddle[rng.Next(MaleMiddle.Length)];
+                fullName = $"{Surnames[rng.Next(Surnames.Length)]} {middle} {given}";
+            }
+            while (!usedNames.Add(fullName));
+
+            var months = rng.Next(minMonths, maxMonths + 1);
+            var status = months <= 2 ? EmploymentStatus.Probation : EmploymentStatus.Active;
+            list.Add(new EmpSeed(key, $"e{n}", fullName, gender, Dob(minAge, maxAge), Phone(), Address(), position, dept, months, status, level, manager));
+            return key;
+        }
+
+        void Staff(string prefix, int count, string dept, string position, int level, string manager)
+        {
+            for (var i = 1; i <= count; i++) Gen($"{prefix}{i}", dept, position, level, manager, 1, 48, 22, 42);
+        }
+
+        // ---- e1-e20: tài khoản dùng thử cũ ----
+        Fixed("CEO", "Nguyễn Văn Hùng", Gender.Male, new(1978, 3, 14), "12 Lê Lợi, Quận 1, TP.HCM", "CEO", "EXE", 36, EmploymentStatus.Active, 0, null);
+        Fixed("SALES_HEAD", "Trần Thị Mai", Gender.Female, new(1985, 7, 22), "45 Nguyễn Huệ, Quận 1, TP.HCM", "HEAD", "SALES", 24, EmploymentStatus.Active, 2, "DIR_COM");
+        Fixed("HR_HEAD", "Dương Thị Thu", Gender.Female, new(1986, 11, 2), "78 Hai Bà Trưng, Quận 3, TP.HCM", "HEAD", "HR", 24, EmploymentStatus.Active, 2, "DIR_FIN");
+        Fixed("IT_HEAD", "Hồ Văn Kiên", Gender.Male, new(1984, 1, 19), "23 Cách Mạng Tháng 8, Quận 10, TP.HCM", "HEAD", "IT", 24, EmploymentStatus.Active, 2, "DIR_TECH");
+        Fixed("ACC_HEAD", "Tô Thị Nga", Gender.Female, new(1987, 5, 9), "56 Điện Biên Phủ, Bình Thạnh, TP.HCM", "HEAD", "ACC", 24, EmploymentStatus.Active, 2, "DIR_FIN");
+        Fixed("TEAM_LEAD_A", "Lê Văn Long", Gender.Male, new(1990, 9, 30), "89 Võ Văn Tần, Quận 3, TP.HCM", "LEAD", "SALES", 18, EmploymentStatus.Active, 3, "SALES_HEAD");
+        Fixed("TEAM_LEAD_B", "Phạm Văn Khánh", Gender.Male, new(1991, 2, 11), "34 Pasteur, Quận 1, TP.HCM", "LEAD", "SALES", 18, EmploymentStatus.Active, 3, "SALES_HEAD");
+        Fixed("SALES_A1", "Hoàng Thị Lan", Gender.Female, new(1994, 6, 25), "12 Lý Tự Trọng, Quận 1, TP.HCM", "SALESREP", "SALES", 14, EmploymentStatus.Active, 4, "TEAM_LEAD_A");
+        Fixed("SALES_A2", "Vũ Văn Đức", Gender.Male, new(1993, 12, 8), "67 Nam Kỳ Khởi Nghĩa, Quận 3, TP.HCM", "SALESREP", "SALES", 10, EmploymentStatus.Active, 4, "TEAM_LEAD_A");
+        Fixed("SALES_A3", "Đặng Thị Hương", Gender.Female, new(1996, 4, 17), "90 Trần Hưng Đạo, Quận 5, TP.HCM", "SALESREP", "SALES", 6, EmploymentStatus.Active, 4, "TEAM_LEAD_A");
+        Fixed("SALES_B1", "Bùi Văn Tùng", Gender.Male, new(1992, 8, 3), "21 Nguyễn Thị Minh Khai, Quận 1, TP.HCM", "SALESREP", "SALES", 12, EmploymentStatus.Active, 4, "TEAM_LEAD_B");
+        Fixed("SALES_B2", "Đỗ Thị Ngọc", Gender.Female, new(1995, 10, 21), "54 Cống Quỳnh, Quận 1, TP.HCM", "SALESREP", "SALES", 8, EmploymentStatus.Active, 4, "TEAM_LEAD_B");
+        Fixed("SALES_B3", "Ngô Văn Phúc", Gender.Male, new(1999, 1, 30), "76 Lê Văn Sỹ, Phú Nhuận, TP.HCM", "SALESREP", "SALES", 2, EmploymentStatus.Probation, 4, "TEAM_LEAD_B");
+        Fixed("HR_1", "Lý Văn Sơn", Gender.Male, new(1993, 3, 12), "15 Hoàng Diệu, Quận 4, TP.HCM", "HRSTAFF", "HR", 9, EmploymentStatus.Active, 3, "HR_HEAD");
+        Fixed("HR_2", "Phan Thị Hạnh", Gender.Female, new(1996, 7, 6), "38 Nguyễn Đình Chiểu, Quận 3, TP.HCM", "HRSTAFF", "HR", 5, EmploymentStatus.Active, 3, "HR_HEAD");
+        Fixed("IT_1", "Trịnh Văn Minh", Gender.Male, new(1992, 5, 27), "60 Ba Tháng Hai, Quận 10, TP.HCM", "DEV", "IT", 15, EmploymentStatus.Active, 4, "LEAD_BE");
+        Fixed("IT_2", "Đinh Thị Yến", Gender.Female, new(1994, 9, 14), "82 Sư Vạn Hạnh, Quận 10, TP.HCM", "DEV", "IT", 11, EmploymentStatus.Active, 4, "LEAD_BE");
+        Fixed("IT_3", "Cao Văn Bình", Gender.Male, new(1997, 11, 23), "29 Tô Hiến Thành, Quận 10, TP.HCM", "DEV", "IT", 4, EmploymentStatus.Active, 4, "LEAD_FE");
+        Fixed("ACC_1", "Mai Văn Toàn", Gender.Male, new(1993, 2, 16), "41 Lê Quang Định, Bình Thạnh, TP.HCM", "ACCSTAFF", "ACC", 13, EmploymentStatus.Active, 3, "ACC_HEAD");
+        Fixed("ACC_2", "Chu Thị Quỳnh", Gender.Female, new(1995, 12, 5), "63 Phan Xích Long, Phú Nhuận, TP.HCM", "ACCSTAFF", "ACC", 7, EmploymentStatus.Active, 3, "ACC_HEAD");
+
+        // ---- Cấp giám đốc (3 khối) và trợ lý Tổng giám đốc ----
+        Gen("DIR_COM", "EXE", "DIRECTOR", 1, "CEO", 48, 72, 40, 50);   // Khối Thương mại: Kinh doanh, Marketing, CSKH
+        Gen("DIR_TECH", "EXE", "DIRECTOR", 1, "CEO", 48, 72, 40, 50);  // Khối Công nghệ: Kỹ thuật, Triển khai & Tư vấn
+        Gen("DIR_FIN", "EXE", "DIRECTOR", 1, "CEO", 48, 72, 40, 50);   // Khối Tài chính - Vận hành: Kế toán, Nhân sự, Hành chính, Vận hành
+        Gen("ASSIST", "EXE", "ASSISTANT", 1, "CEO", 12, 36, 26, 34);
+
+        // ---- Trưởng phòng mới ----
+        Gen("MKT_HEAD", "MKT", "HEAD", 2, "DIR_COM", 30, 60, 34, 44);
+        Gen("CS_HEAD", "CS", "HEAD", 2, "DIR_COM", 30, 60, 34, 44);
+        Gen("IMP_HEAD", "IMP", "HEAD", 2, "DIR_TECH", 30, 60, 34, 44);
+        Gen("ADM_HEAD", "ADM", "HEAD", 2, "DIR_FIN", 30, 60, 34, 46);
+        Gen("OPS_HEAD", "OPS", "HEAD", 2, "DIR_FIN", 30, 60, 34, 46);
+
+        // ---- Kinh doanh: 3 nhóm + 1 trợ lý kinh doanh ----
+        Gen("TEAM_LEAD_C", "SALES", "LEAD", 3, "SALES_HEAD", 18, 36, 30, 38);
+        Staff("SALES_A_N", 3, "SALES", "SALESREP", 4, "TEAM_LEAD_A");
+        Staff("SALES_B_N", 3, "SALES", "SALESREP", 4, "TEAM_LEAD_B");
+        Staff("SALES_C_N", 6, "SALES", "SALESREP", 4, "TEAM_LEAD_C");
+        Gen("SALES_ADMIN", "SALES", "ASSISTANT", 3, "SALES_HEAD", 6, 30, 24, 32);
+
+        // ---- Kỹ thuật: 5 nhóm (Backend, Frontend/Mobile, QA, Hạ tầng, Sản phẩm/BA) ----
+        foreach (var (key, _) in new[] { ("LEAD_BE", 0), ("LEAD_FE", 0), ("LEAD_QA", 0), ("LEAD_INFRA", 0), ("LEAD_BA", 0) })
+        {
+            Gen(key, "IT", "LEAD", 3, "IT_HEAD", 20, 48, 30, 40);
+        }
+        Staff("BE_N", 3, "IT", "DEV", 4, "LEAD_BE");
+        Staff("FE_N", 5, "IT", "DEV", 4, "LEAD_FE");
+        Staff("QA_N", 3, "IT", "QA", 4, "LEAD_QA");
+        Staff("INFRA_N", 2, "IT", "INFRA", 4, "LEAD_INFRA");
+        Staff("BA_N", 3, "IT", "BA", 4, "LEAD_BA");
+
+        // ---- Nhân sự (3-4 người, đúng tỷ lệ ~2,5-3,5 trên 100 nhân viên), Hành chính, Kế toán ----
+        Staff("HR_N", 1, "HR", "HRSTAFF", 3, "HR_HEAD");
+        Staff("ACC_N", 4, "ACC", "ACCSTAFF", 3, "ACC_HEAD");
+        Staff("ADM_N", 3, "ADM", "ADMSTAFF", 3, "ADM_HEAD");
+
+        // ---- Marketing, Chăm sóc khách hàng, Vận hành, Triển khai & Tư vấn ----
+        Staff("MKT_N", 6, "MKT", "MKTSTAFF", 3, "MKT_HEAD");
+        Gen("CS_LEAD", "CS", "LEAD", 3, "CS_HEAD", 18, 36, 28, 36);
+        Gen("CS_LEAD2", "CS", "LEAD", 3, "CS_HEAD", 18, 36, 28, 36);
+        Staff("CS_N", 4, "CS", "CSAGENT", 4, "CS_LEAD");
+        Staff("CS2_N", 3, "CS", "CSAGENT", 4, "CS_LEAD2");
+        Staff("OPS_N", 4, "OPS", "OPSSTAFF", 3, "OPS_HEAD");
+        Gen("IMP_LEAD1", "IMP", "LEAD", 3, "IMP_HEAD", 18, 40, 30, 38);
+        Gen("IMP_LEAD2", "IMP", "LEAD", 3, "IMP_HEAD", 18, 40, 30, 38);
+        Staff("IMP_A_N", 4, "IMP", "CONSULT", 4, "IMP_LEAD1");
+        Staff("IMP_B_N", 3, "IMP", "CONSULT", 4, "IMP_LEAD2");
+
+        return list.ToArray();
+    }
 
     private static readonly (string DeptCode, string HeadKey)[] DepartmentHeads =
     {
         ("EXE", "CEO"), ("SALES", "SALES_HEAD"), ("HR", "HR_HEAD"), ("IT", "IT_HEAD"), ("ACC", "ACC_HEAD"),
+        ("MKT", "MKT_HEAD"), ("ADM", "ADM_HEAD"), ("CS", "CS_HEAD"), ("OPS", "OPS_HEAD"), ("IMP", "IMP_HEAD"),
     };
 
     public static async Task SeedAsync(ApplicationDbContext context, IPasswordHasher passwordHasher)
@@ -80,16 +205,12 @@ public static class DemoDataSeeder
         await SeedAttendanceAsync(context, now, today, employees, approvedLeaveDates);
     }
 
-    // Vai trò mặc định của 4 chức vụ mẫu (cũng ghi vào Position.RoleCode khi chức vụ được tạo ở đây).
+    // Vai trò mặc định theo chức vụ (cũng ghi vào Position.RoleCode khi chức vụ được tạo ở đây).
     // Tài khoản demo dùng bảng này để không phụ thuộc vào RoleCode Admin đã sửa tay.
-    private static readonly Dictionary<string, string> RoleCodeByPosition = new()
-    {
-        ["HEAD"] = "MANAGER",
-        ["DEPUTY"] = "MANAGER",
-        ["MANAGER"] = "MANAGER",
-        ["STAFF"] = "EMPLOYEE",
-        ["HRSTAFF"] = "HR",
-    };
+    private static readonly HashSet<string> ManagerPositions = new() { "CEO", "DIRECTOR", "HEAD", "DEPUTY", "MANAGER", "LEAD" };
+
+    private static string RoleCodeFor(string positionCode) =>
+        positionCode == "HRSTAFF" ? "HR" : ManagerPositions.Contains(positionCode) ? "MANAGER" : "EMPLOYEE";
 
     // PositionSeeder chỉ seed HEAD/DEPUTY/MANAGER/STAFF khi bảng Positions đang rỗng — nếu Admin
     // đã tự tạo chức vụ khác qua UI trước khi seed này chạy (bảng không còn rỗng), 4 mã trên có
@@ -104,6 +225,21 @@ public static class DemoDataSeeder
             ("MANAGER", "Quản lý"),
             ("STAFF", "Nhân viên"),
             ("HRSTAFF", "Chuyên viên nhân sự"),
+            ("CEO", "Tổng giám đốc"),
+            ("DIRECTOR", "Giám đốc khối"),
+            ("LEAD", "Trưởng nhóm"),
+            ("ASSISTANT", "Trợ lý"),
+            ("SALESREP", "Chuyên viên kinh doanh"),
+            ("DEV", "Lập trình viên"),
+            ("QA", "Kiểm thử viên"),
+            ("BA", "Phân tích nghiệp vụ"),
+            ("INFRA", "Kỹ sư hạ tầng"),
+            ("MKTSTAFF", "Chuyên viên Marketing"),
+            ("CSAGENT", "Chuyên viên chăm sóc khách hàng"),
+            ("CONSULT", "Chuyên viên triển khai"),
+            ("ACCSTAFF", "Kế toán viên"),
+            ("ADMSTAFF", "Chuyên viên hành chính"),
+            ("OPSSTAFF", "Chuyên viên vận hành"),
         };
 
         var positions = await context.Positions.ToDictionaryAsync(p => p.PositionCode);
@@ -116,7 +252,7 @@ public static class DemoDataSeeder
             {
                 PositionCode = code,
                 PositionName = name,
-                RoleCode = RoleCodeByPosition.GetValueOrDefault(code),
+                RoleCode = RoleCodeFor(code),
                 IsActive = true,
                 CreatedAt = now,
             };
@@ -142,6 +278,11 @@ public static class DemoDataSeeder
             ["HR"] = new() { DepartmentCode = "HR", DepartmentName = "Phòng Nhân sự", IsActive = true, CreatedAt = now },
             ["IT"] = new() { DepartmentCode = "IT", DepartmentName = "Phòng Kỹ thuật", IsActive = true, CreatedAt = now },
             ["ACC"] = new() { DepartmentCode = "ACC", DepartmentName = "Phòng Kế toán", IsActive = true, CreatedAt = now },
+            ["MKT"] = new() { DepartmentCode = "MKT", DepartmentName = "Phòng Marketing", IsActive = true, CreatedAt = now },
+            ["ADM"] = new() { DepartmentCode = "ADM", DepartmentName = "Phòng Hành chính", IsActive = true, CreatedAt = now },
+            ["CS"] = new() { DepartmentCode = "CS", DepartmentName = "Phòng Chăm sóc khách hàng", IsActive = true, CreatedAt = now },
+            ["OPS"] = new() { DepartmentCode = "OPS", DepartmentName = "Phòng Vận hành & Mua hàng", IsActive = true, CreatedAt = now },
+            ["IMP"] = new() { DepartmentCode = "IMP", DepartmentName = "Phòng Triển khai & Tư vấn", IsActive = true, CreatedAt = now },
         };
 
         context.Departments.AddRange(departments.Values);
@@ -179,8 +320,8 @@ public static class DemoDataSeeder
                     ManagerId = seed.ManagerKey is null ? null : byKey[seed.ManagerKey].Id,
                     HireDate = DateOnly.FromDateTime(now).AddMonths(-seed.HireMonthsAgo),
                     EmploymentStatus = seed.Status,
-                    // Giám đốc không thuộc diện chấm công: giờ giấc do họ tự quyết, chỉ nhân viên cấp dưới mới chấm công thực tế.
-                    TracksAttendance = seed.Key != "CEO",
+                    // Tổng giám đốc và giám đốc khối không thuộc diện chấm công: giờ giấc do họ tự quyết, chỉ cấp dưới mới chấm công thực tế.
+                    TracksAttendance = seed.Level > 1 || seed.Key == "ASSIST",
                     CreatedAt = now,
                 };
 
@@ -228,7 +369,7 @@ public static class DemoDataSeeder
         {
             var employee = employees[seed.Key];
             var position = positionsById[employee.PositionId];
-            var roleCode = RoleCodeByPosition.GetValueOrDefault(position.PositionCode, "EMPLOYEE");
+            var roleCode = RoleCodeFor(position.PositionCode);
             if (!roles.TryGetValue(roleCode, out var role)) continue;
 
             var user = new User
@@ -240,6 +381,12 @@ public static class DemoDataSeeder
                 CreatedAt = now,
             };
             user.UserRoles.Add(new UserRole { Role = role, AssignedAt = now });
+            // Trưởng phòng nhân sự (vừa là quản lý của team HR) là người duy nhất chốt bảng công tháng.
+            if (seed.Key == "HR_HEAD" && roles.TryGetValue(HrRoleSeeder.LeadRoleCode, out var hrLead))
+            {
+                user.UserRoles.Add(new UserRole { Role = hrLead, AssignedAt = now });
+            }
+
             context.Users.Add(user);
         }
 
@@ -260,6 +407,7 @@ public static class DemoDataSeeder
         foreach (var seed in EmployeeSeeds)
         {
             var employee = employees[seed.Key];
+            if (!employee.TracksAttendance) continue;
             foreach (var leaveType in leaveTypes.Values)
             {
                 var month = leaveType.AccrualPeriod == LeaveAccrualPeriod.MonthlyReset ? today.Month : (int?)null;
@@ -422,6 +570,7 @@ public static class DemoDataSeeder
         foreach (var seed in EmployeeSeeds)
         {
             var employee = employees[seed.Key];
+            if (!employee.TracksAttendance) continue;
             foreach (var date in weekdays)
             {
                 var onLeave = approvedLeaveDates.TryGetValue(employee.Id, out var dates) && dates.Contains(date);
