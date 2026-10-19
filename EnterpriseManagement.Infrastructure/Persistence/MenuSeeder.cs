@@ -16,7 +16,7 @@ public static class MenuSeeder
 
     private static readonly MenuSeed[] Seeds =
     {
-        new("EMPLOYEE_DASHBOARD", "Tổng quan", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
+        new("EMPLOYEE_DASHBOARD", "Tổng quan của tôi", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
         new("EMPLOYEE_ATTENDANCE", "Chấm công của tôi", "ClockRegular", "/employee/attendance", 5, "page.employee.attendance", "EMPLOYEE"),
         new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 6, "page.employee.leave", "EMPLOYEE"),
         new("EMPLOYEE_OVERTIME", "Làm thêm giờ", "ClockRegular", "/employee/overtime", 7, "page.employee.overtime", "EMPLOYEE"),
@@ -142,6 +142,9 @@ public static class MenuSeeder
         // khớp menu theo BẤT KỲ permission nào trong MenuPermissions, menu EMPLOYEE_ATTENDANCE tự
         // xuất hiện trong /api/menus/mine của Manager mà không cần thêm MenuCode mới.
         await GrantManagerSelfMenuAsync(context, now, "page.employee.attendance");
+
+        // Quản lý cũng có trang cá nhân (nơi chấm công); "Tổng quan phòng ban" chỉ còn số liệu team, không có nút chấm công.
+        await GrantManagerSelfMenuAsync(context, now, "page.employee.dashboard");
 
         // Tương tự, Manager cũng tự xin nghỉ phép: tái dùng trang "Xin nghỉ phép" (route /employee/leave).
         await GrantManagerSelfMenuAsync(context, now, "page.employee.leave");
@@ -286,6 +289,8 @@ public static class MenuSeeder
         // Trang duyệt giờ gồm cả đơn nghỉ, đi làm lại và làm thêm giờ.
         ("MANAGER_LEAVE", "page.manager.leave", "Duyệt đơn xin nghỉ", "Duyệt đơn từ"),
         ("HR_LEAVE_RETURNS", "page.hr.leave-returns", "Xử lý đi làm lại", "Xác nhận rút ngắn phép"),
+        // Trang chủ cá nhân (chấm công) khác với "Tổng quan phòng ban" của quản lý.
+        ("EMPLOYEE_DASHBOARD", "page.employee.dashboard", "Tổng quan", "Tổng quan của tôi"),
     };
 
     private static async Task RenameEnglishSeedMenusAsync(ApplicationDbContext context, DateTime now)
