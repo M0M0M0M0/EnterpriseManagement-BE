@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Common;
 using EnterpriseManagement.Api.Security;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
@@ -37,8 +38,8 @@ public class OvertimeRequestsController : ControllerBase
 
     [HttpGet("mine")]
     [RequirePermission("overtime.request.self")]
-    public async Task<ActionResult<IEnumerable<OvertimeRequestDto>>> GetMine() =>
-        Ok(await _service.GetMineAsync(_currentUserService.EmployeeCode));
+    public async Task<ActionResult<IEnumerable<OvertimeRequestDto>>> GetMine([FromQuery] int? page = null, [FromQuery] int? pageSize = null) =>
+        Ok(this.Paged(await _service.GetMineAsync(_currentUserService.EmployeeCode), page, pageSize));
 
     [HttpGet("quota")]
     [RequirePermission("overtime.request.self")]
@@ -66,8 +67,16 @@ public class OvertimeRequestsController : ControllerBase
 
     [HttpGet("history")]
     [RequirePermission("overtime.request.view")]
-    public async Task<ActionResult<IEnumerable<OvertimeRequestDto>>> GetHistory() =>
-        Ok(await _service.GetHistoryAsync(_currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN")));
+    public async Task<ActionResult<IEnumerable<OvertimeRequestDto>>> GetHistory(
+        [FromQuery] string? status, [FromQuery] string? q, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    {
+        var history = await _service.GetHistoryAsync(_currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"));
+        var filtered = history
+            .Where(r => string.IsNullOrEmpty(status) || r.Status == status)
+            .Where(r => Paging.Matches(q, r.EmployeeName, r.EmployeeCode))
+            .OrderByDescending(r => r.Id);
+        return Ok(this.Paged(filtered, page, pageSize));
+    }
 
     [HttpPut("{id}/approve")]
     [RequirePermission("overtime.request.approve")]

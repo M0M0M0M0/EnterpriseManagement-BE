@@ -4,6 +4,7 @@ using EnterpriseManagement.Application.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Domain.Entities.Attendance;
+using EnterpriseManagement.Domain.Entities.HR;
 using EnterpriseManagement.Domain.Enums;
 
 namespace EnterpriseManagement.Application.Services;
@@ -36,18 +37,47 @@ public class TimesheetService : ITimesheetService
         if (year is < 2000 or > 2100 || month is < 1 or > 12) throw new InvalidOperationException("Tháng không hợp lệ.");
     }
 
-    public async Task<TimesheetDto> GetAsync(int year, int month, string? departmentCode)
+    public Task<TimesheetDto> GetAsync(int year, int month, string? departmentCode) =>
+        BuildAsync(year, month, all => all.Where(e => string.IsNullOrWhiteSpace(departmentCode) || e.Department?.DepartmentCode == departmentCode));
+
+    // Bảng công của team (cấp dưới, đệ quy) của một quản lý: quản lý chỉ xem, không chốt.
+    public Task<TimesheetDto> GetTeamAsync(int year, int month, string managerEmployeeCode) =>
+        BuildAsync(year, month, all =>
+        {
+            var list = all.ToList();
+            var manager = list.FirstOrDefault(e => e.EmployeeCode == managerEmployeeCode)
+                ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{managerEmployeeCode}'.");
+
+            // Đi xuống cây quản lý (ManagerId); HashSet chặn vòng lặp nếu dữ liệu quản lý bị khép kín.
+            var children = list.Where(e => e.ManagerId.HasValue).ToLookup(e => e.ManagerId!.Value);
+            var team = new List<Employee>();
+            var visited = new HashSet<long> { manager.Id };
+            var queue = new Queue<long>();
+            queue.Enqueue(manager.Id);
+            while (queue.Count > 0)
+            {
+                foreach (var child in children[queue.Dequeue()])
+                {
+                    if (!visited.Add(child.Id)) continue;
+                    team.Add(child);
+                    queue.Enqueue(child.Id);
+                }
+            }
+
+            return team;
+        });
+
+    private async Task<TimesheetDto> BuildAsync(int year, int month, Func<IEnumerable<Employee>, IEnumerable<Employee>> scope)
     {
         ValidateMonth(year, month);
         var start = new DateOnly(year, month, 1);
         var end = start.AddMonths(1).AddDays(-1);
 
-        // Không có ngày nghỉ việc nên người đã nghỉ việc/chấm dứt hợp đồng không nằm trong bảng công; tài khoản hệ thống cũng không.
-        var employees = (await _employeeRepository.GetAllAsync())
+        // Không có ngày nghỉ việc nên người đã nghỉ việc/chấm dứt hợp đồng không nằm trong bảng công; người không thuộc diện chấm công cũng không.
+        var employees = scope(await _employeeRepository.GetAllAsync())
             .Where(e => e.TracksAttendance
                 && e.HireDate <= end
-                && e.EmploymentStatus is not (EmploymentStatus.Resigned or EmploymentStatus.Terminated)
-                && (string.IsNullOrWhiteSpace(departmentCode) || e.Department?.DepartmentCode == departmentCode))
+                && e.EmploymentStatus is not (EmploymentStatus.Resigned or EmploymentStatus.Terminated))
             .OrderBy(e => e.EmployeeCode)
             .ToList();
 

@@ -10,7 +10,6 @@ namespace EnterpriseManagement.Api.Controllers;
 [ApiController]
 [Route("api/timesheets")]
 [Authorize]
-[RequirePermission("timesheet.manage")]
 public class TimesheetsController : ControllerBase
 {
     private readonly ITimesheetService _service;
@@ -23,6 +22,7 @@ public class TimesheetsController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("timesheet.manage")]
     public async Task<ActionResult<TimesheetDto>> Get([FromQuery] int year, [FromQuery] int month, [FromQuery] string? departmentCode)
     {
         try
@@ -35,7 +35,23 @@ public class TimesheetsController : ControllerBase
         }
     }
 
+    // Bảng công của team mình (quản lý chỉ xem; chốt/mở lại là việc của Nhân sự).
+    [HttpGet("team")]
+    [RequirePermission("attendance.view.team")]
+    public async Task<ActionResult<TimesheetDto>> GetTeam([FromQuery] int year, [FromQuery] int month)
+    {
+        try
+        {
+            return Ok(await _service.GetTeamAsync(year, month, _currentUserService.EmployeeCode));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet("export")]
+    [RequirePermission("timesheet.manage")]
     public async Task<IActionResult> Export([FromQuery] int year, [FromQuery] int month, [FromQuery] string? departmentCode)
     {
         try
@@ -50,10 +66,12 @@ public class TimesheetsController : ControllerBase
     }
 
     [HttpGet("periods")]
+    [RequirePermission("timesheet.manage")]
     public async Task<ActionResult<IEnumerable<AttendancePeriodDto>>> GetClosedPeriods([FromQuery] int year) =>
         Ok(await _service.GetClosedPeriodsAsync(year));
 
     [HttpPost("close")]
+    [RequirePermission("timesheet.manage")]
     public async Task<ActionResult<AttendancePeriodDto>> Close([FromQuery] int year, [FromQuery] int month)
     {
         try
@@ -67,6 +85,7 @@ public class TimesheetsController : ControllerBase
     }
 
     [HttpDelete("close")]
+    [RequirePermission("timesheet.manage")]
     public async Task<IActionResult> Reopen([FromQuery] int year, [FromQuery] int month)
     {
         try

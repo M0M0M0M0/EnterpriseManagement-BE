@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Api.Security;
@@ -37,10 +38,10 @@ public class LeaveRequestsController : ControllerBase
 
     [HttpGet("mine")]
     [RequirePermission("leave.request.self")]
-    public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetMine()
+    public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetMine([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         var requests = await _leaveRequestService.GetByEmployeeAsync(_currentUserService.EmployeeCode);
-        return Ok(requests);
+        return Ok(this.Paged(requests, page, pageSize));
     }
 
     [HttpPut("{id}/cancel")]
@@ -68,10 +69,15 @@ public class LeaveRequestsController : ControllerBase
 
     [HttpGet("history")]
     [RequirePermission("leave.request.view")]
-    public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetHistory()
+    public async Task<ActionResult<IEnumerable<LeaveRequestDto>>> GetHistory(
+        [FromQuery] string? status, [FromQuery] string? q, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         var history = await _leaveRequestService.GetHistoryAsync(_currentUserService.EmployeeCode, _currentUserService.IsInRole("ADMIN"));
-        return Ok(history);
+        var filtered = history
+            .Where(r => string.IsNullOrEmpty(status) || r.Status == status)
+            .Where(r => Paging.Matches(q, r.EmployeeName, r.EmployeeCode))
+            .OrderByDescending(r => r.Id);
+        return Ok(this.Paged(filtered, page, pageSize));
     }
 
     [HttpPut("{id}/approve")]

@@ -221,10 +221,16 @@ public class OvertimeService : IOvertimeService
 
         var requester = await GetEmployeeAsync(requesterEmployeeCode);
         var result = new List<OvertimeRequestDto>();
+        var approverByEmployee = new Dictionary<long, long?>();
         foreach (var r in requests)
         {
-            var approver = await _approvalDelegationResolver.ResolveApproverAsync(r.Employee);
-            if (approver?.Id == requester.Id) result.Add(ToDto(r));
+            if (!approverByEmployee.TryGetValue(r.EmployeeId, out var approverId))
+            {
+                approverId = (await _approvalDelegationResolver.ResolveApproverAsync(r.Employee))?.Id;
+                approverByEmployee[r.EmployeeId] = approverId;
+            }
+
+            if (approverId == requester.Id) result.Add(ToDto(r));
         }
 
         return result;

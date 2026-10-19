@@ -319,10 +319,17 @@ public class LeaveRequestService : ILeaveRequestService
             ?? throw new InvalidOperationException($"Không tìm thấy nhân viên có mã '{requesterEmployeeCode}'.");
 
         var result = new List<LeaveRequestDto>();
+        // Người duyệt chỉ phụ thuộc người gửi đơn: dò một lần cho mỗi nhân viên thay vì mỗi đơn (lịch sử có thể rất dài).
+        var approverByEmployee = new Dictionary<long, long?>();
         foreach (var r in requests)
         {
-            var approver = await _approvalDelegationResolver.ResolveApproverAsync(r.Employee);
-            if (approver?.Id == requester.Id)
+            if (!approverByEmployee.TryGetValue(r.EmployeeId, out var approverId))
+            {
+                approverId = (await _approvalDelegationResolver.ResolveApproverAsync(r.Employee))?.Id;
+                approverByEmployee[r.EmployeeId] = approverId;
+            }
+
+            if (approverId == requester.Id)
             {
                 result.Add(ToDto(r));
             }

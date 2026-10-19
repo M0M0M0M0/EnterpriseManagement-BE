@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Common;
 using System.Globalization;
 using EnterpriseManagement.Api.Requests;
 using EnterpriseManagement.Api.Security;
@@ -129,7 +130,7 @@ public class AttendanceController : ControllerBase
         || _currentUserService.Permissions.Contains("attendance.view.all");
 
     [HttpGet("{employeeCode}/history")]
-    public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetHistory(string employeeCode)
+    public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetHistory(string employeeCode, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         if (!CanViewOthers(employeeCode))
         {
@@ -139,7 +140,7 @@ public class AttendanceController : ControllerBase
         try
         {
             var history = await _attendanceService.GetHistoryAsync(employeeCode);
-            return Ok(history);
+            return Ok(this.Paged(history, page, pageSize));
         }
         catch (InvalidOperationException ex)
         {
@@ -171,11 +172,11 @@ public class AttendanceController : ControllerBase
     [HttpGet("all")]
     [RequirePermission("attendance.view.all")]
     public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetAll(
-        [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate, [FromQuery] string? departmentCode)
+        [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate, [FromQuery] string? departmentCode, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         try
         {
-            return Ok(await _attendanceService.GetAllAsync(startDate, endDate, departmentCode));
+            return Ok(this.Paged(await _attendanceService.GetAllAsync(startDate, endDate, departmentCode), page, pageSize));
         }
         catch (InvalidOperationException ex)
         {
@@ -187,7 +188,7 @@ public class AttendanceController : ControllerBase
     [HttpGet("team/{managerEmployeeCode}")]
     [RequirePermission("attendance.view.team")]
     public async Task<ActionResult<IEnumerable<AttendanceRecordDto>>> GetByTeam(
-        string managerEmployeeCode, [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate)
+        string managerEmployeeCode, [FromQuery] DateOnly startDate, [FromQuery] DateOnly endDate, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         if (!_currentUserService.IsInRole("ADMIN") && managerEmployeeCode != _currentUserService.EmployeeCode)
         {
@@ -196,7 +197,7 @@ public class AttendanceController : ControllerBase
 
         try
         {
-            return Ok(await _attendanceService.GetByTeamAsync(managerEmployeeCode, startDate, endDate));
+            return Ok(this.Paged(await _attendanceService.GetByTeamAsync(managerEmployeeCode, startDate, endDate), page, pageSize));
         }
         catch (InvalidOperationException ex)
         {
@@ -237,10 +238,10 @@ public class AttendanceController : ControllerBase
 
     [HttpGet("adjustments/mine")]
     [RequirePermission("attendance.adjustment.self")]
-    public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetMyAdjustments()
+    public async Task<ActionResult<IEnumerable<AttendanceAdjustmentDto>>> GetMyAdjustments([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         var adjustments = await _attendanceAdjustmentService.GetByEmployeeAsync(_currentUserService.EmployeeCode);
-        return Ok(adjustments);
+        return Ok(this.Paged(adjustments, page, pageSize));
     }
 
     [HttpGet("adjustments/pending")]

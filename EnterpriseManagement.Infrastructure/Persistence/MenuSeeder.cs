@@ -24,7 +24,8 @@ public static class MenuSeeder
         new("MANAGER_DASHBOARD", "Tổng quan phòng ban", "HomeRegular", "/manager/dashboard", 1, "page.manager.dashboard", "MANAGER"),
         new("MANAGER_LEAVE", "Duyệt đơn từ", "DocumentBulletListRegular", "/manager/leave", 2, "page.manager.leave", "MANAGER"),
         new("MANAGER_ATTENDANCE", "Quản lý chấm công", "ClockRegular", "/manager/attendance", 3, "page.manager.attendance", "MANAGER"),
-        new("MANAGER_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/manager/employees", 4, "page.manager.employees", "MANAGER"),
+        new("MANAGER_TIMESHEET", "Bảng công tháng", "TableRegular", "/manager/timesheet", 4, "page.manager.timesheet", "MANAGER"),
+        new("MANAGER_EMPLOYEES", "Quản lý nhân viên", "PeopleTeamRegular", "/manager/employees", 5, "page.manager.employees", "MANAGER"),
         new("MANAGER_ORGANIZATION", "Phòng ban & chức vụ", "BuildingRegular", "/manager/organization", 8, "page.manager.organization", "MANAGER"),
         new("MANAGER_ORG_TREE", "Cây tổ chức", "PeopleTeamRegular", "/manager/org-tree", 9, "page.manager.orgtree", "MANAGER"),
 
@@ -153,7 +154,7 @@ public static class MenuSeeder
     // để không ghi đè thứ tự Admin đã tự sắp xếp.
     private static readonly (string MenuCode, int OldOrder, int NewOrder)[] OrderChanges =
     {
-        ("MANAGER_LEAVE", 4, 2), ("MANAGER_EMPLOYEES", 2, 4), ("MANAGER_ORGANIZATION", 7, 8),
+        ("MANAGER_LEAVE", 4, 2), ("MANAGER_EMPLOYEES", 2, 4), ("MANAGER_EMPLOYEES", 4, 5), ("MANAGER_ORGANIZATION", 7, 8),
         ("EMPLOYEE_ATTENDANCE", 2, 5), ("EMPLOYEE_LEAVE", 3, 6), ("EMPLOYEE_OVERTIME", 4, 7),
         ("HR_ATTENDANCE", 1, 10), ("HR_ATTENDANCE_NOTES", 2, 13), ("HR_ADJUSTMENTS", 3, 11), ("HR_LEAVE_RETURNS", 4, 12),
         ("ADMIN_EMPLOYEES", 2, 20), ("ADMIN_DEPARTMENTS", 3, 21), ("ADMIN_POSITIONS", 4, 22), ("ADMIN_LEAVE_TYPES", 5, 23),

@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Api.Security;
@@ -22,10 +23,11 @@ public class EmployeesController : ControllerBase
 
     [HttpGet]
     [RequirePermission("employee.view.all")]
-    public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetAll([FromQuery] string? q, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
-        var employees = await _employeeService.GetAllAsync();
-        return Ok(employees);
+        var employees = (await _employeeService.GetAllAsync())
+            .Where(e => Paging.Matches(q, e.EmployeeCode, e.FullName, e.Email, e.Username, e.DepartmentName, e.PositionName));
+        return Ok(this.Paged(employees, page, pageSize));
     }
 
     [HttpGet("{employeeCode}")]

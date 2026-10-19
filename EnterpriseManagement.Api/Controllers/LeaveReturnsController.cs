@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Common;
 using EnterpriseManagement.Api.Security;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
@@ -53,8 +54,8 @@ public class LeaveReturnsController : ControllerBase
 
     [HttpGet("mine")]
     [RequirePermission("leave.request.self")]
-    public async Task<ActionResult<IEnumerable<LeaveReturnRequestDto>>> GetMine() =>
-        Ok(await _service.GetMineAsync(_currentUserService.EmployeeCode));
+    public async Task<ActionResult<IEnumerable<LeaveReturnRequestDto>>> GetMine([FromQuery] int? page = null, [FromQuery] int? pageSize = null) =>
+        Ok(this.Paged(await _service.GetMineAsync(_currentUserService.EmployeeCode), page, pageSize));
 
     // ---- Manager ----
 

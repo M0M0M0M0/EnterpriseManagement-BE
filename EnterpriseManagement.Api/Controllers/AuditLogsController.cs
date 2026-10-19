@@ -1,3 +1,4 @@
+using EnterpriseManagement.Api.Common;
 using EnterpriseManagement.Application.DTOs;
 using EnterpriseManagement.Application.Interfaces;
 using EnterpriseManagement.Api.Security;
@@ -27,9 +28,9 @@ public class AuditLogsController : ControllerBase
     [HttpGet]
     [RequirePermission("audit.view")]
     public async Task<ActionResult<IEnumerable<AuditLogDto>>> GetAll(
-        [FromQuery] string? username, [FromQuery] string? module, [FromQuery] string? action, [FromQuery] DateOnly? date)
+        [FromQuery] string? username, [FromQuery] string? module, [FromQuery] string? action, [FromQuery] DateOnly? date, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         var logs = await _auditLogService.GetFilteredAsync(username, module, action, date);
-        return Ok(logs);
+        return Ok(this.Paged(logs, page, pageSize));
     }
 }
