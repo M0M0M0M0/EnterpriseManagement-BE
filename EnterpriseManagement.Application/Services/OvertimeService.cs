@@ -138,7 +138,7 @@ public class OvertimeService : IOvertimeService
         await _notificationService.NotifyApproverAsync(
             employee, "OvertimeSubmitted", "Có đơn xin làm thêm giờ mới",
             $"{NotificationText.Name(employee)} xin làm thêm {FormatDuration(minutes)} ngày {request.Date:dd/MM/yyyy} ({start:HH:mm} - {end:HH:mm}).",
-            "/manager/leave", overtime.Id);
+            "/manager/leave?tab=overtime", overtime.Id);
 
         return ToDto((await _repository.GetByIdAsync(overtime.Id))!);
     }

@@ -101,7 +101,7 @@ public class LeaveCancelService : ILeaveCancelService
         await _notificationService.NotifyApproverAsync(
             employee, "LeaveCancelSubmitted", "Có yêu cầu hủy đơn nghỉ phép",
             $"{NotificationText.Name(employee)} xin hủy đơn {leave.LeaveType.LeaveTypeName.ToLowerInvariant()} {NotificationText.Range(leave.StartDate, leave.EndDate)}.",
-            "/manager/leave", cancel.Id);
+            "/manager/leave?tab=cancels", cancel.Id);
 
         return ToDto((await _repository.GetByIdAsync(cancel.Id))!);
     }

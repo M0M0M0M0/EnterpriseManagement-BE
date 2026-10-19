@@ -120,8 +120,8 @@ public static class EffectiveDayCalculator
     public static readonly TimeOnly AfternoonDeadline = new(13, 15);
     public static readonly TimeOnly AfternoonAbsentFrom = new(15, 0);
 
-    // Tan làm 17:00; từ 18:00 trở đi khoá chấm công (vào và ra). Ai quên chấm công ra thì gửi yêu cầu điều chỉnh chấm công.
-    public static readonly TimeOnly PunchLockFrom = new(18, 0);
+    // Tan làm 17:00; từ 22:00 trở đi khoá chấm công (vào và ra). Ai quên chấm công ra thì gửi yêu cầu điều chỉnh chấm công.
+    public static readonly TimeOnly PunchLockFrom = new(22, 0);
 
     public static bool IsPunchLocked(DateTime now) => TimeOnly.FromDateTime(now) >= PunchLockFrom;
 

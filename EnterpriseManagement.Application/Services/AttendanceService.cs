@@ -65,11 +65,11 @@ public class AttendanceService : IAttendanceService
             throw new InvalidOperationException(SystemAccount.NotTrackedMessage);
         }
 
-        // Quá giờ khoá (18:00) thì không chấm công nữa, kiểm tra đầu tiên để không để lại ảnh hay dữ liệu nào.
+        // Quá giờ khoá (22:00) thì không chấm công nữa, kiểm tra đầu tiên để không để lại ảnh hay dữ liệu nào.
         if (EffectiveDayCalculator.IsPunchLocked(VietnamClock.Now))
         {
             throw new InvalidOperationException(
-                "Đã quá 18:00 nên hệ thống khoá chấm công. Nếu quên chấm công, hãy gửi yêu cầu điều chỉnh chấm công.");
+                "Đã quá 22:00 nên hệ thống khoá chấm công. Nếu quên chấm công, hãy gửi yêu cầu điều chỉnh chấm công.");
         }
 
         // Kiểm tra vị trí trước khi lưu bất cứ thứ gì (kể cả ảnh), để lần chấm công bị từ chối không để lại dữ liệu.
@@ -79,7 +79,7 @@ public class AttendanceService : IAttendanceService
         var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, today);
         var now = VietnamClock.Now;
 
-        // Check-in = chưa có bản ghi hoặc bản ghi chưa có giờ vào thật; chỉ check-in mới cần chụp ảnh.
+        // Check-in = chưa có bản ghi hoặc bản ghi chưa có giờ vào thật. Cả check-in lẫn check-out đều cần chụp ảnh.
         var isCheckIn = record is null || record.CheckInTime is null;
         string? photoPath = null;
         if (isCheckIn)
@@ -96,6 +96,15 @@ public class AttendanceService : IAttendanceService
             if (request.Photo is null)
             {
                 throw new InvalidOperationException("Vui lòng chụp ảnh để check-in.");
+            }
+
+            photoPath = await _photoStorage.SaveAsync(request.Photo, request.PhotoExtension);
+        }
+        else
+        {
+            if (request.Photo is null)
+            {
+                throw new InvalidOperationException("Vui lòng chụp ảnh để check-out.");
             }
 
             photoPath = await _photoStorage.SaveAsync(request.Photo, request.PhotoExtension);
@@ -134,10 +143,12 @@ public class AttendanceService : IAttendanceService
         else
         {
             // Các lần punch sau trong cùng ngày = check-out, đè lên checkout trước đó nếu có
-            // (vị trí của lần check-out trước cũng bị thay bằng lần mới nhất). Check-out không lưu ảnh.
+            // (vị trí và ảnh của lần check-out trước cũng bị thay bằng lần mới nhất).
+            if (record.CheckOutPhotoPath is not null) _photoStorage.Delete(record.CheckOutPhotoPath);
             record.CheckOutTime = now;
             record.CheckOutLatitude = request.Latitude;
             record.CheckOutLongitude = request.Longitude;
+            record.CheckOutPhotoPath = photoPath;
             record.WorkingHours = (decimal)(now - record.CheckInTime.Value).TotalHours;
             record.UpdatedAt = now;
         }

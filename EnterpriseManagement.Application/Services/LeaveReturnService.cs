@@ -111,7 +111,7 @@ public class LeaveReturnService : ILeaveReturnService
         await _notificationService.NotifyApproverAsync(
             employee, "ReturnSubmitted", "Có yêu cầu rút ngắn nghỉ phép mới",
             $"{NotificationText.Name(employee)} xin rút ngắn nghỉ phép, đi làm lại từ {NotificationText.Session(session)} {request.FromDate:dd/MM/yyyy}.",
-            "/manager/leave", entity.Id);
+            "/manager/leave?tab=returns", entity.Id);
 
         return ToDto((await _repository.GetByIdAsync(entity.Id))!);
     }
