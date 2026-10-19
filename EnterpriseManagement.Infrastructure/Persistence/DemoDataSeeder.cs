@@ -393,9 +393,9 @@ public static class DemoDataSeeder
         await context.SaveChangesAsync();
     }
 
-    // Trả về map EmployeeId -> danh sách ngày đã được duyệt nghỉ, để bước chấm công phía sau
-    // biết ngày nào phải đánh dấu OnLeave thay vì Present/Late/Absent — 2 bảng luôn khớp nhau.
-    private static async Task<Dictionary<long, List<DateOnly>>> SeedLeaveAsync(
+    // Trả về map (EmployeeId, ngày) -> buổi đã được duyệt nghỉ, để bước chấm công phía sau không tạo giờ vào/ra
+    // cho buổi đang nghỉ — hai bảng luôn khớp nhau.
+    private static async Task<Dictionary<(long EmployeeId, DateOnly Date), LeaveSession>> SeedLeaveAsync(
         ApplicationDbContext context, DateTime now, DateOnly today,
         Dictionary<string, Employee> employees, Dictionary<string, LeaveType> leaveTypes)
     {
@@ -518,12 +518,15 @@ public static class DemoDataSeeder
         context.LeaveRequests.AddRange(requests);
         await context.SaveChangesAsync();
 
-        var approvedByEmployee = new Dictionary<long, List<DateOnly>>
+        var approvedByDay = new Dictionary<(long, DateOnly), LeaveSession>
         {
-            [hr1.Id] = new() { approvedDate1 },
-            [it2.Id] = new() { approvedDate2 },
+            [(hr1.Id, approvedDate1)] = LeaveSession.FullDay,
+            [(it2.Id, approvedDate2)] = LeaveSession.Morning,
         };
-        return approvedByEmployee;
+
+        // Nghỉ có phép rải đều từ đầu tháng 8: khoảng 1,5% ngày công, phần lớn cả ngày, một ít nửa ngày.
+        await SeedExtraLeaveAsync(context, now, today, employees, leaveTypes, balances, approvedByDay);
+        return approvedByDay;
     }
 
     private static decimal CalculateDefaultAllocation(LeaveType leaveType, DateTime employeeCreatedAt, int year)
@@ -559,81 +562,168 @@ public static class DemoDataSeeder
         return result;
     }
 
+    // Ngày bắt đầu của lịch chấm công mẫu: đầu tháng 8 của năm hiện tại.
+    private static DateOnly HistoryStart(DateOnly today) => new(today.Year, 8, 1);
+
+    private static IEnumerable<DateOnly> WorkingDays(DateOnly from, DateOnly to)
+    {
+        for (var date = from; date <= to; date = date.AddDays(1))
+        {
+            if (!WorkCalendar.IsNonWorkingDay(date)) yield return date;
+        }
+    }
+
+    private static readonly string[] LeaveReasons =
+    {
+        "Việc gia đình", "Khám sức khoẻ định kỳ", "Đưa con đi khám", "Việc cá nhân", "Về quê", "Giải quyết giấy tờ", "Nghỉ ốm",
+    };
+
+    private static async Task SeedExtraLeaveAsync(
+        ApplicationDbContext context, DateTime now, DateOnly today,
+        Dictionary<string, Employee> employees, Dictionary<string, LeaveType> leaveTypes,
+        List<LeaveBalance> balances, Dictionary<(long, DateOnly), LeaveSession> approvedByDay)
+    {
+        var rng = new Random(20261020);
+        var annual = leaveTypes["ANNUAL"];
+        var annualBalances = balances.Where(b => b.LeaveTypeId == annual.Id).ToDictionary(b => b.EmployeeId);
+        var days = WorkingDays(HistoryStart(today), today.AddDays(-1)).ToList();
+        var requests = new List<LeaveRequest>();
+
+        foreach (var seed in EmployeeSeeds)
+        {
+            var employee = employees[seed.Key];
+            if (!employee.TracksAttendance || rng.Next(100) >= 55) continue;
+
+            var candidates = days.Where(d => d >= employee.HireDate && !approvedByDay.ContainsKey((employee.Id, d))).ToList();
+            var count = rng.Next(100) < 35 ? 2 : 1;
+            for (var i = 0; i < count && candidates.Count > 0; i++)
+            {
+                var date = candidates[rng.Next(candidates.Count)];
+                candidates.Remove(date);
+                var session = rng.Next(100) < 75 ? LeaveSession.FullDay : (rng.Next(2) == 0 ? LeaveSession.Morning : LeaveSession.Afternoon);
+                var total = session == LeaveSession.FullDay ? 1m : 0.5m;
+
+                if (!annualBalances.TryGetValue(employee.Id, out var balance) || balance.RemainingTime < total) continue;
+                balance.UsedTime += total;
+                balance.RemainingTime -= total;
+
+                var start = session switch
+                {
+                    LeaveSession.Morning => date.ToDateTime(new TimeOnly(8, 0)),
+                    LeaveSession.Afternoon => date.ToDateTime(new TimeOnly(13, 0)),
+                    _ => date.ToDateTime(new TimeOnly(8, 0)),
+                };
+                requests.Add(new LeaveRequest
+                {
+                    EmployeeId = employee.Id,
+                    LeaveTypeId = annual.Id,
+                    StartDate = start,
+                    EndDate = session == LeaveSession.FullDay ? date.ToDateTime(new TimeOnly(17, 0)) : start.AddHours(4),
+                    Session = session,
+                    Unit = LeaveUnit.Days,
+                    TotalTime = total,
+                    Reason = LeaveReasons[rng.Next(LeaveReasons.Length)],
+                    Status = LeaveRequestStatus.Approved,
+                    ApprovedBy = employee.ManagerId,
+                    ApprovedAt = date.AddDays(-2).ToDateTime(new TimeOnly(9, 30)),
+                    CreatedAt = date.AddDays(-3).ToDateTime(new TimeOnly(15, 0)),
+                });
+                approvedByDay[(employee.Id, date)] = session;
+            }
+        }
+
+        context.LeaveRequests.AddRange(requests);
+        await context.SaveChangesAsync();
+    }
+
+    // Lịch chấm công từ đầu tháng 8 đến hôm nay cho mọi người thuộc diện chấm công (Tổng giám đốc và giám đốc khối không chấm công).
+    // Mỗi ngày làm việc (bỏ cuối tuần, ngày lễ, ngày trước khi vào làm): khoảng 95% đi đủ đúng giờ, 2,5% đi muộn buổi sáng,
+    // 1% vắng không phép (không có bản ghi nên hệ thống tự tính vắng); ngày có nghỉ phép thì không có giờ vào/ra của buổi nghỉ.
     private static async Task SeedAttendanceAsync(
         ApplicationDbContext context, DateTime now, DateOnly today,
-        Dictionary<string, Employee> employees, Dictionary<long, List<DateOnly>> approvedLeaveDates)
+        Dictionary<string, Employee> employees, Dictionary<(long EmployeeId, DateOnly Date), LeaveSession> approvedByDay)
     {
-        var weekdays = LastWeekdays(today, 5);
-        var random = Random.Shared;
+        var rng = new Random(20261021);
+        var last5 = LastWeekdays(today, 5);
+        var nowTime = TimeOnly.FromDateTime(now);
         var records = new Dictionary<(string Key, DateOnly Date), AttendanceRecord>();
+        var all = new List<AttendanceRecord>();
 
         foreach (var seed in EmployeeSeeds)
         {
             var employee = employees[seed.Key];
             if (!employee.TracksAttendance) continue;
-            foreach (var date in weekdays)
-            {
-                var onLeave = approvedLeaveDates.TryGetValue(employee.Id, out var dates) && dates.Contains(date);
 
-                AttendanceRecord record;
-                if (onLeave)
+            foreach (var date in WorkingDays(HistoryStart(today), today))
+            {
+                if (date < employee.HireDate) continue;
+                approvedByDay.TryGetValue((employee.Id, date), out var leave);
+                if (leave == LeaveSession.FullDay && approvedByDay.ContainsKey((employee.Id, date))) continue;
+
+                // Hai bản ghi dùng cho yêu cầu điều chỉnh mẫu phía dưới phải tồn tại và bình thường.
+                var forced = (seed.Key == "SALES_A3" && date == last5[0]) || (seed.Key == "IT_1" && date == last5[2]);
+                var roll = rng.Next(1000);
+                var hasLeave = approvedByDay.ContainsKey((employee.Id, date));
+                if (!forced && !hasLeave && roll < 10) continue;
+                var late = !forced && !hasLeave && roll < 35;
+
+                TimeOnly checkIn;
+                TimeOnly? checkOut;
+                if (hasLeave && leave == LeaveSession.Morning)
                 {
-                    record = new AttendanceRecord
-                    {
-                        EmployeeId = employee.Id,
-                        AttendanceDate = date,
-                        Status = AttendanceStatus.OnLeave,
-                        CreatedAt = now,
-                    };
+                    checkIn = new TimeOnly(13, 0).AddMinutes(rng.Next(0, 13));
+                    checkOut = new TimeOnly(17, 0).AddMinutes(rng.Next(0, 40));
+                }
+                else if (hasLeave && leave == LeaveSession.Afternoon)
+                {
+                    checkIn = new TimeOnly(7, 40).AddMinutes(rng.Next(0, 36));
+                    checkOut = new TimeOnly(12, 0).AddMinutes(rng.Next(0, 10));
                 }
                 else
                 {
-                    // ~6% vắng không phép, ~15% đi trễ, còn lại đúng giờ — đủ đa dạng để test UI
-                    // lọc/hiển thị trạng thái mà không cần random thật (roll theo Id+ngày để ổn định).
-                    var roll = (employee.Id * 7 + date.DayNumber) % 100;
-                    if (roll < 6)
-                    {
-                        record = new AttendanceRecord
-                        {
-                            EmployeeId = employee.Id,
-                            AttendanceDate = date,
-                            Status = AttendanceStatus.Absent,
-                            Note = "Vắng không báo trước",
-                            CreatedAt = now,
-                        };
-                    }
-                    else
-                    {
-                        var isLate = roll < 21;
-                        var checkIn = date.ToDateTime(isLate
-                            ? new TimeOnly(8, 35).AddMinutes(random.Next(0, 25))
-                            : new TimeOnly(8, 0).AddMinutes(random.Next(0, 25)));
-                        var checkOut = date.ToDateTime(new TimeOnly(17, 0).AddMinutes(random.Next(0, 60)));
-
-                        record = new AttendanceRecord
-                        {
-                            EmployeeId = employee.Id,
-                            AttendanceDate = date,
-                            CheckInTime = checkIn,
-                            CheckOutTime = checkOut,
-                            WorkingHours = (decimal)(checkOut - checkIn).TotalHours,
-                            Status = isLate ? AttendanceStatus.Late : AttendanceStatus.Present,
-                            CreatedAt = now,
-                        };
-                    }
+                    checkIn = late ? new TimeOnly(8, 20).AddMinutes(rng.Next(0, 80)) : new TimeOnly(7, 40).AddMinutes(rng.Next(0, 36));
+                    checkOut = new TimeOnly(17, 0).AddMinutes(rng.Next(0, 46));
                 }
 
-                context.AttendanceRecords.Add(record);
+                // Hôm nay chỉ có những gì đã xảy ra tính đến thời điểm seed.
+                if (date == today)
+                {
+                    if (checkIn > nowTime) continue;
+                    if (checkOut > nowTime) checkOut = null;
+                }
+
+                var inTime = date.ToDateTime(checkIn);
+                var outTime = checkOut is null ? (DateTime?)null : date.ToDateTime(checkOut.Value);
+                decimal? hours = null;
+                if (outTime is not null)
+                {
+                    var span = (decimal)(outTime.Value - inTime).TotalHours;
+                    // Trừ giờ nghỉ trưa khi ca làm kéo dài qua 12:00-13:00.
+                    hours = Math.Round(inTime.TimeOfDay < new TimeSpan(12, 0, 0) && outTime.Value.TimeOfDay > new TimeSpan(13, 0, 0) ? span - 1m : span, 2);
+                }
+
+                var record = new AttendanceRecord
+                {
+                    EmployeeId = employee.Id,
+                    AttendanceDate = date,
+                    CheckInTime = inTime,
+                    CheckOutTime = outTime,
+                    WorkingHours = hours,
+                    Status = late ? AttendanceStatus.Late : AttendanceStatus.Present,
+                    CreatedAt = now,
+                };
+                all.Add(record);
                 records[(seed.Key, date)] = record;
             }
         }
 
+        context.AttendanceRecords.AddRange(all);
         await context.SaveChangesAsync();
 
         var adjustmentRequester = employees["SALES_A3"];
-        var pendingTarget = records[("SALES_A3", weekdays[0])];
+        var pendingTarget = records[("SALES_A3", last5[0])];
         var approvedRequester = employees["IT_1"];
-        var approvedTarget = records[("IT_1", weekdays[2])];
+        var approvedTarget = records[("IT_1", last5[2])];
 
         context.AttendanceAdjustments.AddRange(
             new AttendanceAdjustment
@@ -642,7 +732,7 @@ public static class DemoDataSeeder
                 RequestedBy = adjustmentRequester.Id,
                 Reason = "Check-in bị ghi nhận trễ do lỗi mạng, thực tế đã có mặt đúng giờ.",
                 OldCheckInTime = pendingTarget.CheckInTime,
-                NewCheckInTime = weekdays[0].ToDateTime(new TimeOnly(8, 5)),
+                NewCheckInTime = last5[0].ToDateTime(new TimeOnly(8, 5)),
                 Status = ApprovalStatus.Pending,
                 CreatedAt = now,
             },
@@ -652,12 +742,32 @@ public static class DemoDataSeeder
                 RequestedBy = approvedRequester.Id,
                 Reason = "Quên bấm check-out, nhờ điều chỉnh lại đúng giờ ra về thực tế.",
                 OldCheckOutTime = approvedTarget.CheckOutTime,
-                NewCheckOutTime = weekdays[2].ToDateTime(new TimeOnly(18, 15)),
+                NewCheckOutTime = last5[2].ToDateTime(new TimeOnly(18, 15)),
                 Status = ApprovalStatus.Approved,
                 ApprovedBy = employees["IT_HEAD"].Id,
                 ApprovedAt = now,
                 CreatedAt = now,
             });
+
+        // Một ít đơn làm thêm giờ đã duyệt (17:30-19:30) rải trong các ngày đã có chấm công, để bảng công tháng có số OT.
+        var overtimeKeys = records.Keys.Where(k => k.Date < today).OrderBy(_ => rng.Next()).Take(24).ToList();
+        foreach (var (key, date) in overtimeKeys)
+        {
+            var employee = employees[key];
+            context.OvertimeRequests.Add(new OvertimeRequest
+            {
+                EmployeeId = employee.Id,
+                Date = date,
+                StartTime = new TimeOnly(17, 30),
+                EndTime = new TimeOnly(19, 30),
+                Minutes = 120,
+                Reason = "Hoàn thành công việc cuối kỳ",
+                Status = OvertimeStatus.Approved,
+                ApprovedBy = employee.ManagerId,
+                ApprovedAt = date.AddDays(-1).ToDateTime(new TimeOnly(16, 0)),
+                CreatedAt = date.AddDays(-1).ToDateTime(new TimeOnly(10, 0)),
+            });
+        }
 
         await context.SaveChangesAsync();
     }
