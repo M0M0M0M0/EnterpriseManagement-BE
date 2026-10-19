@@ -266,6 +266,8 @@ public class EmployeeAccountTests
     {
         public Task<User?> GetByUsernameAsync(string username) =>
             Task.FromResult(s.Users.FirstOrDefault(u => string.Equals(u.Username, username, StringComparison.OrdinalIgnoreCase)));
+        public Task<User?> GetByEmployeeCodeAsync(string employeeCode) =>
+            Task.FromResult(s.Users.FirstOrDefault(u => u.Employee != null && u.Employee.EmployeeCode == employeeCode));
         public Task<IEnumerable<User>> GetAllAsync() => Task.FromResult<IEnumerable<User>>(s.Users.ToList());
         public Task AddAsync(User user) { s.Users.Add(user); return Task.CompletedTask; }
         public void RemoveUserRole(UserRole userRole) { }

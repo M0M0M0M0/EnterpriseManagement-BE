@@ -829,6 +829,12 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("PrivacyConsentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("PrivacyConsentVersion")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 

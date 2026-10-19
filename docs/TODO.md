@@ -13,3 +13,9 @@ _(không có)_
 - **Backend:** `EffectiveDayCalculator.PunchLockFrom` (18:00) + `IsPunchLocked`; `AttendanceService.PunchAsync` kiểm tra đầu tiên và trả lỗi tiếng Việt. Có test đơn vị.
 - **Web:** `PunchHero` tự khoá nút (đổi chữ "Đã khoá", bỏ hiệu ứng, kèm hướng dẫn). **Mobile:** `CheckButton`/Trang chủ tự khoá đúng 18:00.
 - Mốc khoá đang là hằng số trong code; muốn cấu hình được thì chuyển sang `appsettings.json` (như mục `Reminders`).
+
+## Sau đợt rà soát BA/UX (2026-10-19)
+- Đã làm: vai trò HR; tách quyền Quản lý/HR; OT; ngày lễ; bảng công tháng có chốt kỳ; đồng ý GPS/ảnh + tự xóa sau 180 ngày; xếp lại menu.
+- Ngày lễ: seed 2026 đủ, 2027 chỉ ngày cố định. Tết Âm lịch/Giỗ Tổ/nghỉ bù các năm sau do HR bổ sung ở trang Ngày nghỉ lễ khi có thông báo chính thức.
+- Lịch ngày lễ nạp vào bộ nhớ (WorkCalendar); chạy nhiều bản backend thì cần restart để nhận thay đổi ngày lễ từ bản khác.
+- Chưa làm: ca làm việc, tính tiền OT, geofence theo nhiều địa điểm, phép năm theo thâm niên/chuyển phép, tương phản/chế độ tối.

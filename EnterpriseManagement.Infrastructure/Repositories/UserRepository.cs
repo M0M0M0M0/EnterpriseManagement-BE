@@ -23,6 +23,9 @@ public class UserRepository : IUserRepository
                         .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(u => u.Username == username);
 
+    public async Task<User?> GetByEmployeeCodeAsync(string employeeCode) =>
+        await _context.Users.FirstOrDefaultAsync(u => u.Employee.EmployeeCode == employeeCode);
+
     public async Task<IEnumerable<User>> GetAllAsync() =>
         await _context.Users
             .Include(u => u.Employee)

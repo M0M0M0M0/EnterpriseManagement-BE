@@ -16,12 +16,15 @@ public class AttendanceController : ControllerBase
     private readonly IAttendanceService _attendanceService;
     private readonly IAttendanceAdjustmentService _attendanceAdjustmentService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IPrivacyConsentService _privacyConsent;
 
     public AttendanceController(
         IAttendanceService attendanceService,
         IAttendanceAdjustmentService attendanceAdjustmentService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IPrivacyConsentService privacyConsent)
     {
+        _privacyConsent = privacyConsent;
         _attendanceService = attendanceService;
         _attendanceAdjustmentService = attendanceAdjustmentService;
         _currentUserService = currentUserService;
@@ -69,6 +72,9 @@ public class AttendanceController : ControllerBase
 
         try
         {
+            // Chưa đồng ý chính sách vị trí/ảnh thì không chấm công (kiểm tra trước khi lưu bất cứ thứ gì).
+            await _privacyConsent.EnsureAcceptedAsync(_currentUserService.EmployeeCode);
+
             var request = new PunchRequest
             {
                 Latitude = latitude,

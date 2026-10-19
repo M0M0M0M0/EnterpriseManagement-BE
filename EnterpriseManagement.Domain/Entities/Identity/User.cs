@@ -15,6 +15,10 @@ public class User
     public bool IsActive { get; set; }
     public DateTime? LastLoginAt { get; set; }
 
+    // Đồng ý chính sách thu thập vị trí/ảnh chấm công (phiên bản đã đồng ý và thời điểm). Null = chưa đồng ý hoặc đã rút lại.
+    public int? PrivacyConsentVersion { get; set; }
+    public DateTime? PrivacyConsentAt { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 

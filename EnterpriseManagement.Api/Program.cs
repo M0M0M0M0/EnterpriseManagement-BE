@@ -95,6 +95,11 @@ builder.Services.AddScoped<IAttendancePeriodRepository, AttendancePeriodReposito
 builder.Services.AddScoped<IPeriodLockService, PeriodLockService>();
 builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+var evidenceRetentionDays = builder.Configuration.GetValue<int?>("Attendance:EvidenceRetentionDays") ?? PrivacyPolicy.DefaultRetentionDays;
+builder.Services.AddScoped<IPrivacyConsentService>(sp => new PrivacyConsentService(
+    sp.GetRequiredService<IUserRepository>(), sp.GetRequiredService<IAuditLogService>(), sp.GetRequiredService<ICurrentUserService>(), evidenceRetentionDays));
+builder.Services.AddHostedService(sp => new AttendanceEvidenceRetentionWorker(
+    sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<ILogger<AttendanceEvidenceRetentionWorker>>(), evidenceRetentionDays));
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
 // Thông báo: hộp thông báo trong DB + thông báo đẩy Firebase (tự tắt nếu chưa có file khoá tài khoản dịch vụ).

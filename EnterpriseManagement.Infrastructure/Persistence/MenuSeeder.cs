@@ -17,7 +17,7 @@ public static class MenuSeeder
     private static readonly MenuSeed[] Seeds =
     {
         new("EMPLOYEE_DASHBOARD", "Tổng quan", "HomeRegular", "/employee/dashboard", 1, "page.employee.dashboard", "EMPLOYEE"),
-        new("EMPLOYEE_ATTENDANCE", "Điều chỉnh chấm công", "ClockRegular", "/employee/attendance", 5, "page.employee.attendance", "EMPLOYEE"),
+        new("EMPLOYEE_ATTENDANCE", "Chấm công của tôi", "ClockRegular", "/employee/attendance", 5, "page.employee.attendance", "EMPLOYEE"),
         new("EMPLOYEE_LEAVE", "Xin nghỉ phép", "CalendarRegular", "/employee/leave", 6, "page.employee.leave", "EMPLOYEE"),
         new("EMPLOYEE_OVERTIME", "Làm thêm giờ", "ClockRegular", "/employee/overtime", 7, "page.employee.overtime", "EMPLOYEE"),
 
@@ -280,6 +280,8 @@ public static class MenuSeeder
         ("ADMIN_SYSTEM", "page.admin.system", "System Administration", "Quản trị hệ thống"),
         // Việc chấm công đã chuyển sang Trang chủ/Tổng quan; trang này chỉ còn lịch và yêu cầu điều chỉnh.
         ("EMPLOYEE_ATTENDANCE", "page.employee.attendance", "Chấm công", "Điều chỉnh chấm công"),
+        // Trang này có lịch chấm công của tôi và các yêu cầu điều chỉnh, nên gọi là "Chấm công của tôi".
+        ("EMPLOYEE_ATTENDANCE", "page.employee.attendance", "Điều chỉnh chấm công", "Chấm công của tôi"),
         // Trang duyệt giờ gồm cả đơn nghỉ, đi làm lại và làm thêm giờ.
         ("MANAGER_LEAVE", "page.manager.leave", "Duyệt đơn xin nghỉ", "Duyệt đơn từ"),
     };
