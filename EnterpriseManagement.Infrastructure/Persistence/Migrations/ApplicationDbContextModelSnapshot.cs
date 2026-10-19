@@ -924,6 +924,57 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.ToTable("LeaveBalances", (string)null);
                 });
 
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveCancelRequest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("EmployeeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LeaveRequestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("ManagerId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ManagerId");
+
+                    b.HasIndex("EmployeeId", "Status");
+
+                    b.HasIndex("LeaveRequestId", "Status");
+
+                    b.ToTable("LeaveCancelRequests", (string)null);
+                });
+
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveRequest", b =>
                 {
                     b.Property<long>("Id")
@@ -1498,6 +1549,32 @@ namespace EnterpriseManagement.Infrastructure.Persistence.Migrations
                     b.Navigation("Employee");
 
                     b.Navigation("LeaveType");
+                });
+
+            modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveCancelRequest", b =>
+                {
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.Leave.LeaveRequest", "LeaveRequest")
+                        .WithMany()
+                        .HasForeignKey("LeaveRequestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EnterpriseManagement.Domain.Entities.HR.Employee", "Manager")
+                        .WithMany()
+                        .HasForeignKey("ManagerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("LeaveRequest");
+
+                    b.Navigation("Manager");
                 });
 
             modelBuilder.Entity("EnterpriseManagement.Domain.Entities.Leave.LeaveRequest", b =>

@@ -120,7 +120,7 @@ public class AttendanceNoteService : IAttendanceNoteService
             if (current == SessionStatus.OnLeave)
             {
                 throw new InvalidOperationException(
-                    $"Buổi {Label(session)} {date:dd/MM/yyyy} đang nghỉ phép. Nhân viên cần gửi yêu cầu đi làm lại, không ghi chú trực tiếp được.");
+                    $"Buổi {Label(session)} {date:dd/MM/yyyy} đang nghỉ phép. Nhân viên cần gửi yêu cầu rút ngắn nghỉ phép, không ghi chú trực tiếp được.");
             }
         }
 

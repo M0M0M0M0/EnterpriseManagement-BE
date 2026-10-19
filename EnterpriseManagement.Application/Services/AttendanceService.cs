@@ -90,7 +90,7 @@ public class AttendanceService : IAttendanceService
             if (await _effective.GetSessionStatusAsync(employee.Id, today, currentSession) == SessionStatus.OnLeave)
             {
                 throw new InvalidOperationException(
-                    "Bạn đang trong thời gian nghỉ phép đã được duyệt nên chưa thể chấm công. Nếu muốn đi làm, hãy gửi yêu cầu đi làm lại.");
+                    "Bạn đang trong thời gian nghỉ phép đã được duyệt nên chưa thể chấm công. Nếu muốn đi làm, hãy gửi yêu cầu rút ngắn nghỉ phép.");
             }
 
             if (request.Photo is null)

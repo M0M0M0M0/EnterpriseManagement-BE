@@ -44,6 +44,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<LeaveReturnRequest> LeaveReturnRequests => Set<LeaveReturnRequest>();
+    public DbSet<LeaveCancelRequest> LeaveCancelRequests => Set<LeaveCancelRequest>();
     public DbSet<LeaveReturnSession> LeaveReturnSessions => Set<LeaveReturnSession>();
 
     // Auditing

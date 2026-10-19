@@ -32,7 +32,7 @@ public static class MenuSeeder
         // Nhóm Nhân sự (10-19): việc hằng ngày của HR. Nhóm danh mục (20-29) và hệ thống (30+) đứng sau.
         new("HR_ATTENDANCE", "Chấm công toàn công ty", "ClockRegular", "/hr/attendance", 10, "page.hr.attendance", "ADMIN"),
         new("HR_ADJUSTMENTS", "Xử lý điều chỉnh công", "DocumentBulletListRegular", "/hr/adjustments", 11, "page.hr.adjustments", "ADMIN"),
-        new("HR_LEAVE_RETURNS", "Xử lý đi làm lại", "CalendarRegular", "/hr/leave-returns", 12, "page.hr.leave-returns", "ADMIN"),
+        new("HR_LEAVE_RETURNS", "Xác nhận rút ngắn phép", "CalendarRegular", "/hr/leave-returns", 12, "page.hr.leave-returns", "ADMIN"),
         new("HR_ATTENDANCE_NOTES", "Ghi nhận chấm công", "DocumentBulletListRegular", "/hr/attendance-notes", 13, "page.hr.attendance-notes", "ADMIN"),
         new("HR_TIMESHEET", "Bảng công tháng", "TableRegular", "/hr/timesheet", 14, "page.hr.timesheet", "ADMIN"),
         new("HR_HOLIDAYS", "Ngày nghỉ lễ", "CalendarRegular", "/hr/holidays", 15, "page.hr.holidays", "ADMIN"),
@@ -285,6 +285,7 @@ public static class MenuSeeder
         ("EMPLOYEE_ATTENDANCE", "page.employee.attendance", "Điều chỉnh chấm công", "Chấm công của tôi"),
         // Trang duyệt giờ gồm cả đơn nghỉ, đi làm lại và làm thêm giờ.
         ("MANAGER_LEAVE", "page.manager.leave", "Duyệt đơn xin nghỉ", "Duyệt đơn từ"),
+        ("HR_LEAVE_RETURNS", "page.hr.leave-returns", "Xử lý đi làm lại", "Xác nhận rút ngắn phép"),
     };
 
     private static async Task RenameEnglishSeedMenusAsync(ApplicationDbContext context, DateTime now)

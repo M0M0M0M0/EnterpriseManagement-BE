@@ -93,7 +93,7 @@ public class AttendanceAdjustmentService : IAttendanceAdjustmentService
         var day = await _effective.GetDayAsync(employee.Id, request.AttendanceDate);
         if (day.Morning == SessionStatus.OnLeave && day.Afternoon == SessionStatus.OnLeave)
         {
-            throw new InvalidOperationException("Ngày này bạn đang nghỉ phép nên không điều chỉnh công được. Nếu đã đi làm, hãy gửi yêu cầu đi làm lại.");
+            throw new InvalidOperationException("Ngày này bạn đang nghỉ phép nên không điều chỉnh công được. Nếu đã đi làm, hãy gửi yêu cầu rút ngắn nghỉ phép.");
         }
 
         var record = await _attendanceRepository.GetByEmployeeAndDateAsync(employee.Id, request.AttendanceDate);

@@ -76,7 +76,7 @@ public class LeaveReturnService : ILeaveReturnService
 
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
-            throw new InvalidOperationException("Vui lòng nhập lý do xin đi làm lại.");
+            throw new InvalidOperationException("Vui lòng nhập lý do xin rút ngắn nghỉ phép.");
         }
 
         var session = ParseSession(request.FromSession);
@@ -84,7 +84,7 @@ public class LeaveReturnService : ILeaveReturnService
 
         if (await _repository.HasOpenRequestAsync(employee.Id))
         {
-            throw new InvalidOperationException("Bạn đang có một yêu cầu đi làm lại chưa xử lý xong. Vui lòng chờ kết quả trước khi gửi yêu cầu khác.");
+            throw new InvalidOperationException("Bạn đang có một yêu cầu rút ngắn nghỉ phép chưa xử lý xong. Vui lòng chờ kết quả trước khi gửi yêu cầu khác.");
         }
 
         var tail = await ResolveTailAsync(employee.Id, request.FromDate, session);
@@ -109,8 +109,8 @@ public class LeaveReturnService : ILeaveReturnService
         await LogAsync("Submit", entity.Id);
 
         await _notificationService.NotifyApproverAsync(
-            employee, "ReturnSubmitted", "Có yêu cầu đi làm lại mới",
-            $"{NotificationText.Name(employee)} xin đi làm lại từ {NotificationText.Session(session)} {request.FromDate:dd/MM/yyyy}.",
+            employee, "ReturnSubmitted", "Có yêu cầu rút ngắn nghỉ phép mới",
+            $"{NotificationText.Name(employee)} xin rút ngắn nghỉ phép, đi làm lại từ {NotificationText.Session(session)} {request.FromDate:dd/MM/yyyy}.",
             "/manager/leave", entity.Id);
 
         return ToDto((await _repository.GetByIdAsync(entity.Id))!);
@@ -167,7 +167,7 @@ public class LeaveReturnService : ILeaveReturnService
 
         var awaitingHr = request.Status == ReturnRequestStatus.PendingHr;
         await _notificationService.NotifyAsync(
-            request.EmployeeId, "ReturnApproved", "Yêu cầu đi làm lại đã được duyệt",
+            request.EmployeeId, "ReturnApproved", "Yêu cầu rút ngắn nghỉ phép đã được duyệt",
             awaitingHr
                 ? "Quản lý đã duyệt. Các buổi đã bắt đầu đang chờ nhân sự xác nhận bạn đã đi làm."
                 : "Quản lý đã duyệt. Các buổi đi làm lại đã được gỡ khỏi nghỉ phép và phép được hoàn lại.",
@@ -176,7 +176,7 @@ public class LeaveReturnService : ILeaveReturnService
         if (awaitingHr)
         {
             await _notificationService.NotifyPermissionHoldersAsync(
-                "attendance.note.manage", request.EmployeeId, "ReturnAwaitingProcessing", "Có yêu cầu đi làm lại chờ xác nhận",
+                "attendance.note.manage", request.EmployeeId, "ReturnAwaitingProcessing", "Có yêu cầu rút ngắn nghỉ phép chờ xác nhận",
                 $"{NotificationText.Name(request.Employee)} đã được quản lý duyệt đi làm lại, cần xác nhận các buổi đã bắt đầu.",
                 "/hr/leave-returns", request.Id);
         }
@@ -200,8 +200,8 @@ public class LeaveReturnService : ILeaveReturnService
         await LogAsync("Reject", request.Id);
 
         await _notificationService.NotifyAsync(
-            request.EmployeeId, "ReturnRejected", "Yêu cầu đi làm lại bị từ chối",
-            "Quản lý đã từ chối yêu cầu đi làm lại của bạn." + (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Lý do: {reason}"),
+            request.EmployeeId, "ReturnRejected", "Yêu cầu rút ngắn nghỉ phép bị từ chối",
+            "Quản lý đã từ chối yêu cầu rút ngắn nghỉ phép của bạn." + (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Lý do: {reason}"),
             "/employee/leave", request.Id);
         return ToDto(request);
     }
@@ -275,7 +275,7 @@ public class LeaveReturnService : ILeaveReturnService
         await LogAsync("RejectProcessing", entity.Id);
 
         await _notificationService.NotifyAsync(
-            entity.EmployeeId, "ReturnRejected", "Yêu cầu đi làm lại bị từ chối xác nhận",
+            entity.EmployeeId, "ReturnRejected", "Yêu cầu rút ngắn nghỉ phép bị từ chối xác nhận",
             "Nhân sự không xác nhận các buổi đã bắt đầu, những buổi đó vẫn tính là nghỉ phép."
             + (string.IsNullOrWhiteSpace(reason) ? string.Empty : $" Lý do: {reason}"),
             "/employee/leave", entity.Id);
@@ -291,7 +291,7 @@ public class LeaveReturnService : ILeaveReturnService
     private async Task<LeaveReturnRequest> GetForManagerAsync(long id, Employee manager, bool isAdmin)
     {
         var request = await _repository.GetByIdAsync(id)
-            ?? throw new InvalidOperationException($"Yêu cầu đi làm lại {id} không tồn tại.");
+            ?? throw new InvalidOperationException($"Yêu cầu rút ngắn nghỉ phép {id} không tồn tại.");
 
         if (!isAdmin)
         {
@@ -313,7 +313,7 @@ public class LeaveReturnService : ILeaveReturnService
     private async Task<LeaveReturnRequest> GetForProcessingAsync(long id, Employee processor)
     {
         var request = await _repository.GetByIdAsync(id)
-            ?? throw new InvalidOperationException($"Yêu cầu đi làm lại {id} không tồn tại.");
+            ?? throw new InvalidOperationException($"Yêu cầu rút ngắn nghỉ phép {id} không tồn tại.");
 
         if (request.Status != ReturnRequestStatus.PendingHr)
         {
@@ -323,7 +323,7 @@ public class LeaveReturnService : ILeaveReturnService
         // Không tự xử lý yêu cầu của chính mình, để người xác nhận luôn là người khác.
         if (request.EmployeeId == processor.Id)
         {
-            throw new InvalidOperationException("Bạn không thể xử lý yêu cầu đi làm lại của chính mình.");
+            throw new InvalidOperationException("Bạn không thể xử lý yêu cầu rút ngắn nghỉ phép của chính mình.");
         }
 
         // Người đã duyệt (bước 1) không được tự xác nhận (bước 2).
@@ -358,7 +358,7 @@ public class LeaveReturnService : ILeaveReturnService
             var (earliestDate, earliestSession) = EarliestSlot(now);
             var label = earliestSession == DaySession.Morning ? "buổi sáng" : "buổi chiều";
             throw new InvalidOperationException(
-                $"Buổi này đã bắt đầu hoặc đã qua nên không xin đi làm lại được. Buổi sớm nhất có thể xin: {label} {earliestDate:dd/MM/yyyy}.");
+                $"Buổi này đã bắt đầu hoặc đã qua nên không rút ngắn nghỉ phép được. Buổi sớm nhất có thể xin: {label} {earliestDate:dd/MM/yyyy}.");
         }
     }
 
@@ -408,7 +408,7 @@ public class LeaveReturnService : ILeaveReturnService
 
         if (!covered.ContainsKey((fromDate, fromSession)))
         {
-            throw new InvalidOperationException("Buổi này bạn không có nghỉ phép đã duyệt đang còn hiệu lực nên không cần xin đi làm lại.");
+            throw new InvalidOperationException("Buổi này bạn không có nghỉ phép đã duyệt đang còn hiệu lực nên không cần rút ngắn nghỉ phép.");
         }
 
         var result = new List<(DateOnly, DaySession, long, string)>();
@@ -430,6 +430,23 @@ public class LeaveReturnService : ILeaveReturnService
             cursor = cursor.Session == DaySession.Morning
                 ? (cursor.Date, DaySession.Afternoon)
                 : (cursor.Date.AddDays(1), DaySession.Morning);
+        }
+
+        // Rút ngắn chỉ cắt phần CÒN LẠI của một kỳ nghỉ đã bắt đầu. Nếu buổi bắt đầu rút ngắn chính là buổi nghỉ đầu tiên của đơn
+        // thì thực chất là bỏ cả kỳ nghỉ: phải dùng "Xin hủy đơn nghỉ phép" (cần quản lý duyệt, không qua nhân sự).
+        if (result.Count > 0)
+        {
+            var requestId = result[0].Item3;
+            var firstOfRequest = covered
+                .Where(kv => kv.Value.RequestId == requestId)
+                .Select(kv => kv.Key)
+                .OrderBy(k => k.Item1).ThenBy(k => k.Item2)
+                .First();
+            if (firstOfRequest == (result[0].Item1, result[0].Item2))
+            {
+                throw new InvalidOperationException(
+                    "Kỳ nghỉ này chưa bắt đầu nên không thể rút ngắn. Nếu không đi nghỉ nữa, hãy dùng chức năng \"Xin hủy đơn nghỉ phép\".");
+            }
         }
 
         return result;
