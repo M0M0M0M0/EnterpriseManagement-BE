@@ -47,9 +47,8 @@ public class DashboardService : IDashboardService
             EmployeeCode = employee.EmployeeCode,
             EmployeeName = $"{employee.FirstName} {employee.LastName}",
             TodayAttendance = todayDay.HasData ? AttendanceMapper.ToRecordDto(todayDay, employee) : null,
-            // Chỉ cộng các loại nghỉ tính theo ngày; loại tính theo giờ (Nghỉ ngắn) không
-            // cùng đơn vị nên không gộp chung vào tổng "ngày phép còn lại" này.
-            TotalRemainingLeaveDays = balances.Where(b => b.Unit == LeaveUnit.Days.ToString()).Sum(b => b.RemainingTime),
+            // "Ngày phép còn lại" chỉ là số dư Nghỉ có phép (ANNUAL); không cộng Nghỉ chế độ hay các loại khác.
+            TotalRemainingLeaveDays = balances.Where(b => b.LeaveTypeCode == "ANNUAL").Sum(b => b.RemainingTime),
             PendingLeaveRequestsCount = pendingLeaves,
             PendingAttendanceAdjustmentsCount = pendingAdjustments
         };
