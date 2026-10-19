@@ -449,6 +449,12 @@ public class LeaveReturnService : ILeaveReturnService
             }
         }
 
+        // Chỉ rút ngắn khi phần nghỉ còn lại (từ buổi chọn tới hết đơn) từ 1 ngày trở lên, tức ít nhất 2 buổi.
+        if (result.Count < 2)
+        {
+            throw new InvalidOperationException("Phần nghỉ còn lại chưa đủ 1 ngày nên không thể rút ngắn nghỉ phép.");
+        }
+
         return result;
     }
 
